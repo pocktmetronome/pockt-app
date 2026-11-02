@@ -161,7 +161,11 @@ function Key({
 
 export function FrontScreen() {
   useFonts(FONTS);
-  const { width, height } = useWindowDimensions();
+  const screen = useWindowDimensions();
+  // iPad and other wide screens: the instrument keeps phone proportions, full height, centred, so nothing
+  // is cut off at the top or bottom (the widest phone layout is 320 x 568)
+  const width = Math.min(screen.width, Math.round(screen.height * (320 / 568)));
+  const height = screen.height;
   const ns = useNs9(width, height);
   const st = useInstrumentState();
   const m = useMetronome();
@@ -978,7 +982,8 @@ export function FrontScreen() {
   const hub = windowFace ? 0 : 0.92;
 
   return (
-    <View style={styles.root}>
+    <View style={styles.outer}>
+    <View style={[styles.root, { width, height, flex: undefined }]}>
       <Instrument
         ns={ns}
         width={width}
@@ -1213,10 +1218,12 @@ export function FrontScreen() {
         }}
       />
     </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0D0B09' },
+  outer: { flex: 1, backgroundColor: '#080706', alignItems: 'center', overflow: 'hidden' },
+  root: { flex: 1, backgroundColor: '#0D0B09', overflow: 'hidden' },
   flash: { backgroundColor: '#FFB86A' },
 });
