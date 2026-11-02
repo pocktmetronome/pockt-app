@@ -169,7 +169,8 @@ export function ProFace({
   levels,
   subdivision,
   playing,
-  measure,
+  bar,
+  startedAt,
   beat,
   clock,
   light,
@@ -186,7 +187,10 @@ export function ProFace({
   levels: number[];
   subdivision: SubdivisionId;
   playing: boolean;
-  measure: number;
+  /** Bar number since Play (1-based), from the shared transport. */
+  bar: number;
+  /** Date.now() when Play began, 0 when stopped. */
+  startedAt: number;
   beat: number;
   clock: BeatClock;
   light: BeatLight;
@@ -205,28 +209,18 @@ export function ProFace({
   const fontLbl = useFont(FONT_BOLD, 17);
   const editAt = useSharedValue<number[]>(Array(MAXN).fill(-9));
 
-  // elapsed time: counted from PLAY, shown to the second
-  const [elapsed, setElapsed] = useState(0);
+  // bar and elapsed time both count from PLAY and are owned by the screen, not this face, so switching
+  // faces never restarts them
+  const since = () => (playing && startedAt > 0 ? Math.max(0, Math.floor((Date.now() - startedAt) / 1000)) : 0);
+  const [elapsed, setElapsed] = useState(since);
   useEffect(() => {
-    if (!playing) {
-      setElapsed(0);
-      return;
-    }
-    const t0 = Date.now();
-    const id = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 250);
+    setElapsed(since());
+    if (!playing || !startedAt) return;
+    const id = setInterval(() => setElapsed(since()), 250);
     return () => clearInterval(id);
-  }, [playing]);
-  const bar0 = useSharedValue(-1);
-  const [barNo, setBarNo] = useState(1);
-  useEffect(() => {
-    if (!playing) {
-      bar0.value = -1;
-      setBarNo(1);
-      return;
-    }
-    if (bar0.value < 0) bar0.value = measure;
-    setBarNo(measure - bar0.value + 1);
-  }, [measure, playing, bar0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, startedAt]);
+  const barNo = bar;
   const readouts = [playing ? String(barNo) : '—', playing ? `${beat + 1}/${n}` : '—', `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`];
 
   // pendulum light

@@ -69,6 +69,8 @@ final class PocktTimingEngine {
   private var clickHostRing = [Double](repeating: 0, count: 16)
   private var clickHostIdx = 0
   private var clickGuardActive = false
+  /// Tuning is the one time the click goes quiet: the clock keeps running silently underneath.
+  private var clickGain: Float { tunerLive ? 0 : 1 }
 
   private var config = PocktEngineConfig.default
   private var generation: UInt64 = 0
@@ -298,7 +300,7 @@ final class PocktTimingEngine {
           || clicks.needsReload(for: engine.mainMixerNode.outputFormat(forBus: 0))
       )
       engine.mainMixerNode.outputVolume = clampedAudibleVolume(next.volume)
-      player.volume = 1
+      player.volume = clickGain
       player.pan = Float(next.pan)
       safeHapticsRestart()
       try beginChunkPlayback()
@@ -1053,7 +1055,7 @@ final class PocktTimingEngine {
     try ensureEngineRunning()
     sampleRate = actualSampleRate()
     engine.mainMixerNode.outputVolume = clampedAudibleVolume(config.volume)
-    player.volume = 1
+    player.volume = clickGain
 
     try PocktAudioSession.perform(.playerPlay) {
       self.player.play()
@@ -1515,6 +1517,7 @@ final class PocktTimingEngine {
   }
 
   private func scheduleHaptic(event: PocktMusicalEvent, atSeconds eventSeconds: Double, generation gen: UInt64) {
+    if tunerLive { return }
     var timed = event
     timed.eventSeconds = eventSeconds
     guard PocktTimeline.shouldHaptic(
@@ -1728,7 +1731,7 @@ final class PocktTimingEngine {
     let safe = min(1, max(0, volume.isFinite ? volume : 0.8))
     config.volume = safe
     engine.mainMixerNode.outputVolume = clampedAudibleVolume(safe)
-    player.volume = 1
+    player.volume = clickGain
   }
 
   private func clampedAudibleVolume(_ volume: Double) -> Float {
@@ -1818,6 +1821,8 @@ final class PocktTimingEngine {
       tunerInputSampleRate = hw.sampleRate
       tunerInputChannels = Int(hw.channelCount)
       tunerLive = true
+      player.volume = clickGain
+      haptics.cancelAll()
       lastAudioLifecycleOp = "startTuner-withClick"
       NSLog("[POCKT TUNER] started alongside the click sr=%g guard=%d", hw.sampleRate, clickGuardActive ? 1 : 0)
       return tunerSnapshot(status: "initializing")
@@ -1860,6 +1865,7 @@ final class PocktTimingEngine {
       }
       try installTunerTap(using: format)
     tunerLive = true
+    player.volume = clickGain
     lifecycle = .tunerInput
     lastAudioLifecycleOp = "startTuner"
       let snap = tunerSnapshot(status: "initializing")
@@ -1888,6 +1894,7 @@ final class PocktTimingEngine {
     defer { sched.unlock() }
     lastAudioLifecycleOp = "stopTuner"
     tunerLive = false
+    player.volume = clickGain
     removeTunerTap()
     tunerBuffersReceived = 0
     tunerLastFrequency = 0
@@ -2101,7 +2108,7 @@ final class PocktTimingEngine {
     tunerSinceAnalysis += n
     guard tunerAccumCount >= cap, tunerSinceAnalysis >= 2048 else { return }
     tunerSinceAnalysis = 0
-    if running && clickGuardActive {
+    if running && clickGuardActive && clickGain > 0 {
       let end = when.isHostTimeValid
         ? AVAudioTime.seconds(forHostTime: when.hostTime) + Double(n) / max(1, rate)
         : AVAudioTime.seconds(forHostTime: mach_absolute_time())
@@ -2245,7 +2252,7 @@ final class PocktTimingEngine {
       }
     }
     engine.mainMixerNode.outputVolume = clampedAudibleVolume(config.volume)
-    player.volume = 1
+    player.volume = clickGain
     prepared = true
     sessionActivated = true
     if running {
@@ -2412,7 +2419,7 @@ final class PocktTimingEngine {
       }
     }
     engine.mainMixerNode.outputVolume = clampedAudibleVolume(config.volume)
-    player.volume = 1
+    player.volume = clickGain
     if !engine.isRunning {
       throw PocktAudioSession.annotate(
         NSError(
@@ -2464,7 +2471,7 @@ final class PocktTimingEngine {
       }
     }
     engine.mainMixerNode.outputVolume = clampedAudibleVolume(config.volume)
-    player.volume = 1
+    player.volume = clickGain
     connectPreviewPlayer()
     connectUiClickPlayer()
     if reloadClicks || !clicks.isLoaded || clicks.needsReload(for: format) {

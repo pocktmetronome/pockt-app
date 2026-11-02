@@ -457,13 +457,11 @@ final class PocktDialView: ExpoView {
     onTurn(["rad": Double(ringRotation)])
     ringHaveAngle = false
     ringReleasedAt = CACurrentMediaTime()
-    // A throw keeps the ring turning; a placed finger leaves the tempo exactly where it is.
-    let idle = ProcessInfo.processInfo.systemUptime - ringLastTime
-    if wheelEngaged && abs(ringVel) > 170 && idle < 0.06 {
-      startCoast()
-    } else {
-      ringValue = Double(lastEmittedBpm)
-    }
+    // The tempo stays exactly where the finger lets go. (A thrown ring used to coast on, adding tens of
+    // BPM after release — the 45 → 151 jump on Rhythm.)
+    stopCoast()
+    ringVel = 0
+    ringValue = Double(lastEmittedBpm)
     if wheelMode && !wheelEngaged && CACurrentMediaTime() - wheelBeganAt < 0.8 {
       let c = dialCenter()
       let dx = wheelBeganPoint.x - c.x

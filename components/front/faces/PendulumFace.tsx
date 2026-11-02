@@ -285,6 +285,9 @@ export function PendulumFace({
   const y0 = useSharedValue(0);
   const b0 = useSharedValue(0);
   const lastB = useSharedValue(0);
+  // the rod's angle when the weight was grabbed: the drag reads along that fixed line, so the arm's own
+  // swing under a still finger can never move the tempo
+  const th0 = useSharedValue(0);
   const pan = Gesture.Pan()
     .minDistance(0)
     .onBegin((e) => {
@@ -295,6 +298,7 @@ export function PendulumFace({
       const across = mx * Math.cos(th) + my * Math.sin(th);
       if (Math.abs(across) < 52 && Math.abs(along - wSv.value) < 56) {
         grab.value = 1;
+        th0.value = th;
         y0.value = along;
         b0.value = bpmSv.value;
         lastB.value = bpmSv.value;
@@ -312,7 +316,7 @@ export function PendulumFace({
       const mx = e.x / k - C;
       const my = e.y / k - C - PIV;
       if (grab.value === 1) {
-        const th = theta.value;
+        const th = th0.value;
         const along = mx * Math.sin(th) - my * Math.cos(th);
         const nb = Math.max(20, Math.min(400, Math.round(bpmAt(wPos(b0.value) + (along - y0.value)))));
         if (nb !== lastB.value) {

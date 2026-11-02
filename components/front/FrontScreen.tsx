@@ -286,6 +286,10 @@ export function FrontScreen() {
   if (!playing) blStart.current = -1;
   else if (blStart.current < 0) blStart.current = transport.measureIndex;
   const beatlineBar = Math.max(1, transport.measureIndex - blStart.current + 1);
+  // one bar count and one elapsed clock for every face, counted from Play; a face mounting never resets them
+  const playT0 = useRef(0);
+  if (!playing) playT0.current = 0;
+  else if (!playT0.current) playT0.current = Date.now();
 
   /** One accent edit, from a lamp or a face: everything shows it, and the glass says it in words. */
   const previewLamp = (beat: number) => {
@@ -892,7 +896,8 @@ export function FrontScreen() {
     st.turn.value += strobeV.value * dt;
   });
   const pressTuner = () => {
-    // the tuner never stops the click: both run together
+    // tuning is the one time the click goes quiet: the clock keeps running silently and comes back on exit
+    if (playing) say(tunerOn ? 'CLICK BACK ON' : 'CLICK MUTED FOR TUNING');
     if (!tunerOn && face !== 'dial' && face !== 'pulse') setFace('dial');
     setTunerOn((v) => !v);
   };
@@ -921,12 +926,12 @@ export function FrontScreen() {
     : loopState === 'layerFinishing' ? { text: `● LAYER ${nL + 1} · CLOSING`, tone: 'red' }
     : null;
   const ledIdle = tunerOn
-    ? `TUNER · A = ${config.pitchPipeHz || 440} HZ`
+    ? playing ? 'TUNER · CLICK MUTED' : `TUNER · A = ${config.pitchPipeHz || 440} HZ`
     : loopState === 'ready' ? 'LOOP SAVED · TAP TO PLAY'
     : `${FACE_NAME[face]} · ${meterLabel(ts)} · ${SUB_NAME[config.subdivision] ?? ''}`;
   const led: { text: string; tone: LedTone } = note && !(ledLoop && ledLoop.tone === 'red')
     ? { text: note, tone: 'blue' }
-    : ledLoop ?? { text: ledIdle, tone: 'dim' };
+    : ledLoop ?? { text: ledIdle, tone: tunerOn && playing ? 'amber' : 'dim' };
   // the glass keeps to the tempo; every message goes to the LED window
   const smallText = countIn ? 'RECORDING IN' : getReady ? 'GET READY' : tempoWord(bpm);
   const smallColor = countIn || getReady ? '#ff6a4a' : '#e8b46e';
@@ -1056,7 +1061,8 @@ export function FrontScreen() {
           levels={levels}
           subdivision={config.subdivision}
           playing={playing}
-          measure={transport.measureIndex}
+          bar={beatlineBar}
+          startedAt={playT0.current}
           beat={transport.beatIndex}
           clock={clock}
           light={light}
