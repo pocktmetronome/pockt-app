@@ -66,7 +66,13 @@ final class PocktTimingEngine {
   private var tunerAccumCount = 0
   private var tunerSinceAnalysis = 0
   private var tunerFeedBuffer: AVAudioPCMBuffer?
-  private var clickHostRing = [Double](repeating: 0, count: 16)
+  /// Fixed storage, read lock-free by the mic thread (a Swift Array here would race on its buffer).
+  private let clickHostRing: UnsafeMutablePointer<Double> = {
+    let p = UnsafeMutablePointer<Double>.allocate(capacity: 16)
+    p.initialize(repeating: 0, count: 16)
+    return p
+  }()
+  private let clickHostCount = 16
   private var clickHostIdx = 0
   private var clickGuardActive = false
   /// Tuning is the one time the click goes quiet: the clock keeps running silently underneath.
@@ -761,8 +767,6 @@ final class PocktTimingEngine {
   }
 
   func metronomeSelfTest120() throws -> [String: Any] {
-    sched.lock()
-    defer { sched.unlock() }
     NSLog("[POCKT] V13 sample-schedule self-test started")
     var test = PocktEngineConfig.default
     test.bpm = 120
@@ -1299,7 +1303,7 @@ final class PocktTimingEngine {
       let when = AVAudioTime(sampleTime: sample, atRate: sampleRate)
       player.scheduleBuffer(scaled, at: when, options: [])
       if tunerLive, let host = hostSeconds(forPlayerSample: sample) {
-        clickHostRing[clickHostIdx % clickHostRing.count] = host + player.outputPresentationLatency
+        clickHostRing[clickHostIdx % clickHostCount] = host + player.outputPresentationLatency
         clickHostIdx &+= 1
       }
       scheduledAudioCount += 1
@@ -1387,11 +1391,8 @@ final class PocktTimingEngine {
       self.lastHapticSeconds = nil
       self.visualOriginHostTime = 0
     }
-    if Thread.isMainThread {
-      work()
-    } else {
-      DispatchQueue.main.sync(execute: work)
-    }
+    // runs here under `sched`; waiting on main from another thread could deadlock against a main-thread lock
+    work()
     if emitState {
       emitStateLocked()
     }
@@ -1608,7 +1609,10 @@ final class PocktTimingEngine {
     payload["outputPresentationLatencySeconds"] = engine.outputNode.presentationLatency
     payload["playerOutputPresentationLatencySeconds"] = presentation.seconds
     payload["playerSampleAtSchedule"] = currentPlayerSample().map { Double($0) } ?? NSNull()
-    NotificationCenter.default.post(name: Notification.Name("PocktBeatBusTick"), object: nil, userInfo: payload)
+    // posted on main: a queue-bound observer would otherwise make this thread wait on main while it holds `sched`
+    DispatchQueue.main.async {
+      NotificationCenter.default.post(name: Notification.Name("PocktBeatBusTick"), object: nil, userInfo: payload)
+    }
     DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
       guard let self, self.generation == gen, self.running else { return }
       self.emitVisual(payload)
@@ -1802,7 +1806,7 @@ final class PocktTimingEngine {
     try requireMicrophonePermission()
     tunerAccumCount = 0
     tunerSinceAnalysis = 0
-    for i in 0..<clickHostRing.count { clickHostRing[i] = 0 }
+    for i in 0..<clickHostCount { clickHostRing[i] = 0 }
     updateClickGuard()
     // The clock never stops for the tuner. While it plays (or the looper already holds the mic) the
     // microphone joins the running graph on the same beat grid.
@@ -2113,7 +2117,10 @@ final class PocktTimingEngine {
         ? AVAudioTime.seconds(forHostTime: when.hostTime) + Double(n) / max(1, rate)
         : AVAudioTime.seconds(forHostTime: mach_absolute_time())
       let start = end - Double(cap) / max(1, rate)
-      for h in clickHostRing where h > 0 && h > start - 0.07 && h < end + 0.01 { return }
+      for i in 0..<clickHostCount {
+        let h = clickHostRing[i]
+        if h > 0 && h > start - 0.07 && h < end + 0.01 { return }
+      }
     }
     if tunerFeedBuffer == nil || tunerFeedBuffer?.format.sampleRate != rate {
       if let f = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 1) {
@@ -2302,8 +2309,6 @@ final class PocktTimingEngine {
   }
 
   func audioLifecycleStress() throws -> [String: Any] {
-    sched.lock()
-    defer { sched.unlock() }
     var failures: [String] = []
     func note(_ label: String, _ ok: Bool) {
       if !ok { failures.append(label) }

@@ -342,7 +342,7 @@ export function FrontScreen() {
     if (bars > 0 && bars % trainer.every === 0 && bpm < trainer.target) {
       tr.current.from = transport.measureIndex;
       const next = Math.min(trainer.target, bpm + trainer.step);
-      setBpm(next);
+      setBpm(next, 'trainer');
       say(next >= trainer.target ? `TARGET ${next} BPM` : `UP TO ${next}`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -788,7 +788,7 @@ export function FrontScreen() {
     // Play and the tuner run together; the tuner keeps listening
     toggle();
   };
-  const step = (delta: number) => setBpm(Math.max(20, Math.min(400, bpm + delta)));
+  const step = (delta: number) => setBpm(Math.max(20, Math.min(400, bpm + delta)), delta > 0 ? 'plus' : 'minus');
   // stepping from a held key must read the latest tempo, not the one it was pressed at
   const bpmRef = useRef(bpm);
   bpmRef.current = bpm;
@@ -799,7 +799,7 @@ export function FrontScreen() {
     if (n >= 30) next = delta > 0 ? Math.floor(cur / 5) * 5 + 5 : Math.ceil(cur / 5) * 5 - 5;
     else if (n >= 15) next = cur + delta * 2;
     else next = cur + delta;
-    setBpm(Math.max(20, Math.min(400, next)));
+    setBpm(Math.max(20, Math.min(400, next)), 'hold');
   };
 
   // ---- voices have a speed limit: a spoken count only reads up to a tempo --------------------------------
@@ -1045,7 +1045,7 @@ export function FrontScreen() {
           light={light}
           beatIndex={m.pulseBeat}
           accents={accentsSv}
-          onBpm={(b) => setBpm(sanitizeBpm(b, bpm, 20, 400))}
+          onBpm={(b) => setBpm(sanitizeBpm(b, bpm, 20, 400), 'pendulum')}
           onCatch={() => { if (playing) toggle(); }}
           onLaunch={() => { if (!playing && hydrated) toggle(); }}
           onDetent={() => void Haptics.selectionAsync().catch(() => undefined)}
@@ -1141,7 +1141,7 @@ export function FrontScreen() {
           onBpm={(event) => {
             const next = sanitizeBpm(event.nativeEvent.bpm, bpm, 20, 400);
             nativeBpm.current = next;
-            if (next !== bpm) setBpm(next);
+            if (next !== bpm) setBpm(next, dialMode === 'knurl' ? 'dial' : 'wheel');
           }}
           style={{ position: 'absolute', left: knurlC.x - dialHalf, top: knurlC.y - dialHalf, width: dialHalf * 2, height: dialHalf * 2 }}
         />
@@ -1197,7 +1197,7 @@ export function FrontScreen() {
 
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.flash, flashStyle]} />
 
-      <TempoSheet open={sheet === 'tempo'} onClose={() => setSheet(null)} bpm={bpm} onSet={setBpm} light={face === 'pulse' ? light : undefined} onLight={face === 'pulse' ? (p) => { setLight(p); if (!playing) setDemo((d) => d + 1); } : undefined} />
+      <TempoSheet open={sheet === 'tempo'} onClose={() => setSheet(null)} bpm={bpm} onSet={(v) => setBpm(v, 'keypad')} light={face === 'pulse' ? light : undefined} onLight={face === 'pulse' ? (p) => { setLight(p); if (!playing) setDemo((d) => d + 1); } : undefined} />
       <MeterSheet open={sheet === 'meter'} onClose={() => setSheet(null)} config={config} update={update} />
       <SoundSheet open={sheet === 'sound'} onClose={() => setSheet(null)} config={config} update={update} preview={previewSound} />
       <SettingsSheet open={sheet === 'settings'} onClose={() => setSheet(null)} config={config} update={update} loopLayers={layers} onMuteLayer={muteLayer} onDeleteLayer={deleteLayer} loopBars={lp.current.bars} face={face} onGuide={(g) => { setSheet(null); setTimeout(() => setGuide(g), 250); }} trainer={trainer} onTrainer={setTrainer} light={face === 'pulse' || face === 'pro' || face === 'beatline' ? light : undefined} onLight={setLight} />

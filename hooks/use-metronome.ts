@@ -6,6 +6,7 @@ import { Easing, useSharedValue, withDelay, withSequence, withTiming } from 'rea
 import { FEEL_PRESETS } from '@/constants/feel';
 import { resolvePlayableSound } from '@/constants/sounds';
 import { DEFAULT_CONFIG, factoryResetConfig, sanitizeBpm } from '@/constants/timing';
+import { recordTempoChange, type TempoSource } from '@/lib/tempo-audit';
 import { applyConfigPatch } from '@/lib/accents';
 import { isStructuralPatch, structuralCommitReady } from '@/lib/structural-change';
 import { isCountMode } from '@/lib/accent-sound';
@@ -41,7 +42,7 @@ export type TransportState = {
 };
 
 function clampBpm(value: number): number {
-  return sanitizeBpm(value);
+  return sanitizeBpm(value, 120, 20, 400);
 }
 
 function toNativeConfig(config: MetronomeConfig): NativeTimingConfig {
@@ -514,8 +515,9 @@ export function useMetronome() {
   }, []);
 
   const setBpm = useCallback(
-    (value: number) => {
+    (value: number, source: TempoSource = 'other') => {
       const next = clampBpm(value);
+      recordTempoChange(configRef.current.bpm, next, source);
       const newSpb = 60 / Math.max(1, next);
       configRef.current = { ...configRef.current, bpm: next };
       update({ bpm: next });
@@ -811,7 +813,7 @@ export function useMetronome() {
   const tapTempo = useCallback((at?: number) => {
     const bpm = tapRef.current.tap(at);
     setTapFlash((value) => value + 1);
-    if (bpm != null) setBpm(bpm);
+    if (bpm != null) setBpm(bpm, 'tap');
     return bpm;
   }, [setBpm]);
 

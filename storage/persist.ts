@@ -76,7 +76,8 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function sanitizeBpmFromPersist(value: unknown, fallback: number): number {
-  return sanitizeBpm(value, fallback);
+  // the instrument's range is 20–400; an old or damaged file must not load a tempo no control can reach
+  return sanitizeBpm(value, fallback, 20, 400);
 }
 
 function asNumber(value: unknown, fallback: number): number {
