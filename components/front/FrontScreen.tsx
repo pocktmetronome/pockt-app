@@ -130,7 +130,8 @@ function Key({
           const tick = (ms: number) => {
             timer.current = setTimeout(() => {
               n += 1;
-              void Haptics.selectionAsync().catch(() => undefined);
+              // a held key ticks lightly every fifth step, never a continuous buzz
+              if (n % 5 === 1) void Haptics.selectionAsync().catch(() => undefined);
               onRepeat(n);
               tick(70);
             }, ms);
@@ -359,7 +360,7 @@ export function FrontScreen() {
   const [countLeft, setCountLeft] = useState(0);
   const [layers, setLayers] = useState<{ count: number; muted: boolean[]; canRedo: boolean }>({ count: 0, muted: [], canRedo: false });
   const LOOP_MAX_BARS = 64;
-  const lp = useRef({ finalizing: false, startHost: 0, endHost: 0, armAfter: 0, pendingPlay: false, pendingArm: false, startMeasure: 0, endMeasure: 0, bars: 0, from: 0, bpm: 0, ts: '', passStart: 0, recStartedAt: 0 });
+  const lp = useRef({ closeAt: 0, finalizeAt: 0, countAt: 0, layerCloseAt: 0, finalizing: false, startHost: 0, endHost: 0, armAfter: 0, pendingPlay: false, pendingArm: false, startMeasure: 0, endMeasure: 0, bars: 0, from: 0, bpm: 0, ts: '', passStart: 0, recStartedAt: 0 });
   const playingNow = useRef(playing);
   playingNow.current = playing;
   const native = PocktTiming as unknown as {
@@ -410,6 +411,104 @@ export function FrontScreen() {
     native.loopArm(start).then((ok) => { if (!ok) loopFail(new Error('click not running')); }).catch(loopFail);
   }, [nBeats, native, loopFail]);
 
+  /** A promise that gives up after `ms` (a native call must never hold the looper hostage). */
+  const within = <T,>(pr: Promise<T>, ms: number) =>
+    Promise.race([pr, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('no response')), ms))]);
+
+  /** The take ends on the downbeat of L.endMeasure: note when that is, by the clock, as well as by the bar. */
+  const enterFinishing = (curMeasure: number, curBeat: number) => {
+    const L = lp.current;
+    L.finalizing = false;
+    L.closeAt = Date.now() + Math.max(0, (L.endMeasure - curMeasure) * nBeats - curBeat) * spb() * 1000;
+    setLoopState('finishing');
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
+  };
+
+  /** Cuts the first take (once). Triggered by the closing downbeat, or by the clock if that event is late. */
+  const finalizeTake = () => {
+    const L = lp.current;
+    if (L.finalizing || loopRef.current !== 'finishing') return;
+    L.finalizing = true;
+    L.finalizeAt = Date.now();
+    // the heard time of the closing downbeat, from the start downbeat and the tempo (the engine prefers its own)
+    L.endHost = L.startHost + (L.endMeasure - L.startMeasure) * nBeats * spb();
+    L.from = L.endMeasure;
+    setTimeout(() => {
+      if (!native?.loopFinalize) { L.finalizing = false; loopFail(new Error('needs the app build')); return; }
+      within(native.loopFinalize(L.endMeasure, L.startHost, L.endHost), 3000).then((r) => {
+        L.finalizing = false;
+        if (loopRef.current !== 'finishing') return;
+        if (r?.ok) {
+          L.bars = r.bars ?? L.bars;
+          setLoopBar(1);
+          setLoopState('playing');
+          refreshLayers();
+          say('LOOP SET · TAP: ADD LAYER', 3500);
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+        } else loopFail(new Error(r?.reason || 'take failed'));
+      }).catch((e) => { L.finalizing = false; recoverLoop(e); });
+    }, 70);
+  };
+
+  /** Closes a layer's pass (once). */
+  const finalizeLayer = () => {
+    const L = lp.current;
+    if (L.finalizing || loopRef.current !== 'layering') return;
+    L.finalizing = true;
+    L.finalizeAt = Date.now();
+    L.endHost = L.startHost + L.bars * nBeats * spb();
+    setLoopState('layerFinishing');
+    setTimeout(() => {
+      if (!native?.loopFinalizeLayer) { L.finalizing = false; setLoopState('playing'); return; }
+      within(native.loopFinalizeLayer(L.passStart, L.startHost, L.endHost), 3000).then((r) => {
+        L.finalizing = false;
+        if (loopRef.current !== 'layerFinishing') return;
+        setLoopState('playing');
+        if (r?.ok) {
+          refreshLayers();
+          say(`LAYER ${r.layers ?? ''} ADDED · HOLD: UNDO`);
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+        } else say(`LAYER · ${shortReason(r?.reason || '')}`, 5000);
+      }).catch((e) => {
+        L.finalizing = false;
+        void native?.loopCancelLayer?.().catch(() => undefined);
+        setLoopState('playing');
+        say(`LAYER · ${shortReason(String(e))}`, 5000);
+      });
+    }, 70);
+  };
+
+  /** A step that did not answer: ask the engine where it really is, and land there (a saved loop is kept). */
+  const recoverLoop = (e: unknown) => {
+    native?.loopInfo?.().then((i) => {
+      const phase = String(i.phase ?? '');
+      if (phase === 'playing') { setLoopState('playing'); refreshLayers(); say('LOOP SET · TAP: ADD LAYER'); return; }
+      if (phase === 'ready') { setLoopState('ready'); refreshLayers(); return; }
+      loopFail(e);
+    }).catch(() => loopFail(e));
+  };
+
+  // the watchdog: no looper state can hang. A late closing event is covered by the clock; a native call that
+  // never answers is given up on and the engine asked where it is; a count-in that never starts is dropped.
+  useEffect(() => {
+    if (loopState !== 'finishing' && loopState !== 'layering' && loopState !== 'layerFinishing' && loopState !== 'countdown') return;
+    const id = setInterval(() => {
+      const L = lp.current;
+      const now = Date.now();
+      const st8 = loopRef.current;
+      if (st8 === 'finishing' && !L.finalizing && L.closeAt > 0 && now > L.closeAt + 250) finalizeTake();
+      if (st8 === 'layering' && !L.finalizing && L.layerCloseAt > 0 && now > L.layerCloseAt + 300) finalizeLayer();
+      if ((st8 === 'finishing' || st8 === 'layerFinishing') && L.finalizing && now - L.finalizeAt > 4000) {
+        L.finalizing = false;
+        if (st8 === 'finishing') recoverLoop(new Error('no response'));
+        else { setLoopState('playing'); say('LAYER · NO RESPONSE', 4000); }
+      }
+      if (st8 === 'countdown' && L.countAt > 0 && now - L.countAt > 12000) loopFail(new Error('count-in stalled'));
+    }, 200);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loopState]);
+
   const lastLoopBeat = useRef('');
   useEffect(() => {
     if (!playing) return;
@@ -442,33 +541,12 @@ export function FrontScreen() {
       if (b === 0 && bar > LOOP_MAX_BARS) {
         L.endMeasure = L.startMeasure + LOOP_MAX_BARS;
         L.bars = LOOP_MAX_BARS;
-        L.finalizing = false;
-        setLoopState('finishing');
+        enterFinishing(mI, b);
       }
       return;
     }
     if (state === 'finishing') {
-      if (mI >= L.endMeasure && !L.finalizing) {
-        // the closing bar line has been heard: let its last moment reach the mic, then cut the take
-        L.finalizing = true;
-        L.endHost = heardNow() - ((mI - L.endMeasure) * nBeats + b) * spb();
-        L.from = L.endMeasure;
-        setTimeout(() => {
-          if (!native?.loopFinalize) { loopFail(new Error('needs the app build')); return; }
-          native.loopFinalize(L.endMeasure, L.startHost, L.endHost).then((r) => {
-            L.finalizing = false;
-            if (loopRef.current !== 'finishing') return;
-            if (r?.ok) {
-              L.bars = r.bars ?? L.bars;
-              setLoopBar(1);
-              setLoopState('playing');
-              refreshLayers();
-              say('LOOP SET · TAP: ADD LAYER', 3500);
-              void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
-            } else loopFail(new Error(r?.reason || 'take failed'));
-          }).catch((e) => { L.finalizing = false; loopFail(e); });
-        }, 70);
-      }
+      if (mI >= L.endMeasure) finalizeTake();
       return;
     }
     if (state === 'cued' && L.pendingPlay) {
@@ -491,27 +569,12 @@ export function FrontScreen() {
         // the top of the loop: the layer's pass begins here
         L.passStart = mI;
         L.startHost = heardNow();
+        L.layerCloseAt = Date.now() + L.bars * nBeats * spb() * 1000;
         setLoopState('layering');
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => undefined);
         return;
       }
-      if (state === 'layering' && b === 0 && mI >= L.passStart + L.bars && !L.finalizing) {
-        L.finalizing = true;
-        L.endHost = heardNow();
-        setLoopState('layerFinishing');
-        setTimeout(() => {
-          native?.loopFinalizeLayer?.(L.passStart, L.startHost, L.endHost).then((r) => {
-            L.finalizing = false;
-            if (loopRef.current !== 'layerFinishing') return;
-            setLoopState('playing');
-            if (r?.ok) {
-              refreshLayers();
-              say(`LAYER ${r.layers ?? ''} ADDED · HOLD: UNDO`);
-              void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
-            } else say(`LAYER · ${shortReason(r?.reason || '')}`, 5000);
-          }).catch((e) => { L.finalizing = false; setLoopState('playing'); say(`LAYER · ${shortReason(String(e))}`, 5000); });
-        }, 70);
-      }
+      if (state === 'layering' && b === 0 && mI >= L.passStart + L.bars) finalizeLayer();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transport, playing]);
@@ -575,6 +638,7 @@ export function FrontScreen() {
     setCountLeft(0);
     setLayers({ count: 0, muted: [], canRedo: false });
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => undefined);
+    L.countAt = Date.now();
     setLoopState('countdown');
     if (tunerOn) setTunerOn(false);
     // open the microphone path in the audio lane (after the tuner has handed it back), then count in
@@ -616,8 +680,7 @@ export function FrontScreen() {
         if (Date.now() - L.recStartedAt < 500) return;
         L.endMeasure = transport.measureIndex + 1;
         L.bars = Math.max(1, L.endMeasure - L.startMeasure);
-        L.finalizing = false;
-        setLoopState('finishing');
+        enterFinishing(transport.measureIndex, transport.beatIndex);
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
         return;
       }

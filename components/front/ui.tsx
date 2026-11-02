@@ -251,14 +251,24 @@ export function Segmented<T extends string | number>({
   );
 }
 
-export function Row({ label, detail, children }: { label: string; detail?: string; children: ReactNode }) {
+export function Row({ label, detail, children, stacked }: { label: string; detail?: string; children: ReactNode; stacked?: boolean }) {
+  // a wide control (four choices) or a long explanation gets its own line under the words, full width
+  if (stacked) {
+    return (
+      <View style={styles.rowStacked}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        {detail ? <Text style={styles.rowDetail}>{detail}</Text> : null}
+        <View style={{ marginTop: 10 }}>{children}</View>
+      </View>
+    );
+  }
   return (
     <View style={styles.row}>
       <View style={{ flex: 1, paddingRight: 12 }}>
         <Text style={styles.rowLabel}>{label}</Text>
         {detail ? <Text style={styles.rowDetail}>{detail}</Text> : null}
       </View>
-      <View style={{ width: 170 }}>{children}</View>
+      <View style={{ width: '44%', maxWidth: 170 }}>{children}</View>
     </View>
   );
 }
@@ -331,6 +341,7 @@ const styles = StyleSheet.create({
   segItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   segText: { fontFamily: NS.font.medium, fontSize: 17, color: NS.inkMute },
   segTextOn: { color: NS.amberHi },
+  rowStacked: { paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(214,180,126,0.14)' },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(214,180,126,0.14)' },
   rowLabel: { fontFamily: NS.font.semibold, fontSize: 18, color: NS.ink },
   rowDetail: { marginTop: 3, fontFamily: NS.font.regular, fontSize: 17, color: NS.inkMute },

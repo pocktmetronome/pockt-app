@@ -2,6 +2,7 @@
  * The four panels the front page opens: Tempo, Meter, Sound, Settings. One language, large type.
  */
 import Slider from '@react-native-community/slider';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -272,16 +273,20 @@ export function SoundSheet({ open, onClose, config, update, preview }: Common & 
 
   return (
     <Sheet open={open} onClose={onClose} title="Sound" value={soundStudioName(config.sound)}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabs} style={{ marginHorizontal: -18, marginTop: 8 }}>
-        {tabs.map((t) => {
-          const on = t.id === tab;
-          return (
-            <Pressable key={t.id} onPressIn={tick} onPress={() => setTab(t.id)} style={[s.tab, on && s.tabOn]}>
-              <Text style={[s.tabText, on && s.tabTextOn]}>{t.label}</Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      {/* the tabs run off the right edge into a fade, so it is plain there are more to swipe to */}
+      <View style={{ marginHorizontal: -18, marginTop: 8 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabs} style={{}}>
+          {tabs.map((t) => {
+            const on = t.id === tab;
+            return (
+              <Pressable key={t.id} onPressIn={tick} onPress={() => setTab(t.id)} style={[s.tab, on && s.tabOn]}>
+                <Text style={[s.tabText, on && s.tabTextOn]}>{t.label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+        <LinearGradient pointerEvents="none" start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} colors={['rgba(13,10,8,0)', 'rgba(13,10,8,0.95)']} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 44 }} />
+      </View>
 
       {tab === 'mixes' ? (
         <Section title="Mixes" hint="Accent · beat · subdivision">
@@ -397,9 +402,9 @@ function SoundRow({ title, caption, selected, badge, onPress, onPreview, starred
       <View style={[s.soundLed, selected && s.soundLedOn]} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={[s.soundTitle, selected && { color: NS.ink }]} numberOfLines={1}>{title}</Text>
+        {badge ? <Text style={[s.badge, { marginTop: 2 }]}>{badge}</Text> : null}
         {caption ? <Text style={s.soundCaption} numberOfLines={2}>{caption}</Text> : null}
       </View>
-      {badge ? <Text style={s.badge}>{badge}</Text> : null}
       {onStar ? (
         <Pressable
           accessibilityRole="button"
@@ -499,9 +504,9 @@ export function SettingsSheet({
               <Key label="Clear" onPress={() => { presets.clear(editing); note(`SETUP ${editing + 1} CLEARED`); setEditing(null); }} />
             </View>
             <View style={s.presetActionRow}>
-              <Key label="◀  Move" onPress={() => { if (editing > 0) { presets.move(editing, -1); setEditing(editing - 1); } }} />
-              <Key label="Move  ▶" onPress={() => { if (editing < 5) { presets.move(editing, 1); setEditing(editing + 1); } }} />
-              <Key label="Done" tone="amber" onPress={() => setEditing(null)} />
+              <Key label="‹  Move" onPress={() => { if (editing > 0) { presets.move(editing, -1); setEditing(editing - 1); } }} />
+              <Key label="Move  ›" onPress={() => { if (editing < 5) { presets.move(editing, 1); setEditing(editing + 1); } }} />
+              <Key label="Close" onPress={() => setEditing(null)} />
             </View>
           </View>
         ) : null}
@@ -512,7 +517,7 @@ export function SettingsSheet({
         <Level label="Subdivision" value={config.subVolume} onChange={(subVolume) => update({ subVolume })} />
       </Section>
       <Section title="Practice" hint="Build time you can trust">
-        <Row label="Silent bars" detail="The click drops out · you keep the time">
+        <Row stacked label="Silent bars" detail="The click drops out · you keep the time">
           <Segmented<LockInPattern>
             options={[
               { value: 'full', label: 'Off' },
@@ -529,18 +534,18 @@ export function SettingsSheet({
         </Row>
         {trainer.on ? (
           <>
-            <Row label="Step" detail="BPM added each time">
+            <Row stacked label="Step" detail="BPM added each time">
               <Segmented options={[1, 2, 5, 10].map((v) => ({ value: v, label: `+${v}` }))} value={trainer.step} onChange={(step) => onTrainer({ ...trainer, step })} />
             </Row>
-            <Row label="Every" detail="Bars between steps">
+            <Row stacked label="Every" detail="Bars between steps">
               <Segmented options={[1, 2, 4, 8].map((v) => ({ value: v, label: String(v) }))} value={trainer.every} onChange={(every) => onTrainer({ ...trainer, every })} />
             </Row>
-            <Row label="Up to" detail="Stops climbing here">
+            <Row stacked label="Up to" detail="Stops climbing here">
               <Segmented options={[120, 160, 200, 240].map((v) => ({ value: v, label: String(v) }))} value={trainer.target} onChange={(target) => onTrainer({ ...trainer, target })} />
             </Row>
           </>
         ) : null}
-        <Row label="Swing" detail="Lays the off-beats back">
+        <Row stacked label="Swing" detail="Lays the off-beats back">
           <Segmented<SwingAmount>
             options={[
               { value: 'straight', label: 'Off' },
@@ -552,7 +557,7 @@ export function SettingsSheet({
             onChange={(swing) => update({ swing })}
           />
         </Row>
-        <Row label="Polyrhythm" detail="A second pulse against the beat">
+        <Row stacked label="Polyrhythm" detail="A second pulse against the beat">
           <Segmented<PolyrhythmId>
             options={(['off', '3:2', '4:3', '5:4'] as PolyrhythmId[]).map((v) => ({ value: v, label: v === 'off' ? 'Off' : v }))}
             value={(['off', '3:2', '4:3', '5:4'] as PolyrhythmId[]).includes(config.polyrhythm) ? config.polyrhythm : 'off'}
@@ -561,11 +566,11 @@ export function SettingsSheet({
         </Row>
       </Section>
       <Section title="Playing">
-        <Row label="Count-in" detail="Bars of click before you start">
+        <Row stacked label="Count-in" detail="Bars of click before you start">
           <Segmented<CountInBars> options={[0, 1, 2, 4].map((v) => ({ value: v as CountInBars, label: v === 0 ? 'Off' : String(v) }))} value={config.countInBars} onChange={(countInBars) => update({ countInBars })} />
         </Row>
         <Row label="Beat haptics" detail="Feel every beat in your hand">{toggle('haptic')}</Row>
-        <Row label="Haptic strength" detail="Max adds a full-strength thump to every beat">
+        <Row stacked label="Haptic strength" detail="How hard each beat taps your hand. Max adds a full thump on every beat.">
           <Segmented
             options={[{ value: 0.6, label: 'Light' }, { value: 1, label: 'Std' }, { value: 1.3, label: 'Heavy' }, { value: 2, label: 'Max' }]}
             value={config.hapticStrength ?? 1}
@@ -573,7 +578,7 @@ export function SettingsSheet({
           />
         </Row>
       </Section>
-      <Section title="Loop" hint="Tap: record · tap: end · tap: layer · tap tap: stop · hold: undo / clear">
+      <Section title="Loop" hint="One key · see the guide">
         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
           <Key label="? How the looper works" onPress={() => onGuide?.('loop')} />
         </View>
@@ -603,14 +608,14 @@ export function SettingsSheet({
           <Section title="Beat light" hint="Pulse, Pendulum, Pro and Beatline">
             {face === 'pro' ? (
               <>
-                <Row label="Pro · light bar" detail="Under the columns · tap the bar on the face to change it">
+                <Row stacked label="Pro · light bar" detail="Under the columns · tap the bar on the face to change it">
                   <Segmented
                     options={[{ value: 'pendulum', label: 'Swing' }, { value: 'beat', label: 'Beat' }, { value: 'accents', label: 'Accent' }, { value: 'off', label: 'Off' }]}
                     value={proBarOf(light)}
                     onChange={(proBar) => onLight({ proBar, proPend: proBar !== 'off' })}
                   />
                 </Row>
-                <Row label="Pro · flash" detail="Which beats light the columns">
+                <Row stacked label="Pro · flash" detail="Which beats light the columns">
                   <Segmented
                     options={[{ value: 'every', label: 'All' }, { value: 'accents', label: 'Accents' }, { value: 'downbeat', label: 'Beat 1' }]}
                     value={light.proFlash}
@@ -634,7 +639,7 @@ export function SettingsSheet({
       {more ? (
         <>
       <Section title="Tuner">
-        <Row label="Reference" detail="Concert A, in hertz">
+        <Row stacked label="Reference" detail="Concert A, in hertz">
           <Segmented options={[432, 440, 441, 442].map((v) => ({ value: v, label: String(v) }))} value={[432, 440, 441, 442].includes(config.pitchPipeHz) ? config.pitchPipeHz : 440} onChange={(pitchPipeHz) => update({ pitchPipeHz })} />
         </Row>
       </Section>
@@ -781,7 +786,7 @@ export function FaceSheet({ open, onClose, face, light, onLight }: { open: boole
             onChange={(proFlash) => onLight({ proFlash })}
           />
           <View style={{ height: 12 }} />
-          <Row label="Light bar" detail="Swing, every beat, accents only, or off · tap the bar on the face too">
+          <Row stacked label="Light bar" detail="Swing, every beat, accents only, or off · tap the bar on the face too">
             <Segmented
                     options={[{ value: 'pendulum', label: 'Swing' }, { value: 'beat', label: 'Beat' }, { value: 'accents', label: 'Accent' }, { value: 'off', label: 'Off' }]}
                     value={proBarOf(light)}
