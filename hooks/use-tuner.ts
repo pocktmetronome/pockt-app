@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { requestRecordingPermissionsAsync } from 'expo-audio';
 
 import { audioClaim } from '@/lib/audio-claim';
-import { audioMode, captureReleaseIsBlocked, commitAudioMode, enqueueAudio } from '@/lib/audio-ownership';
+import { audioMode, commitAudioMode, enqueueAudio } from '@/lib/audio-ownership';
 import { crashBreadcrumb } from '@/lib/crash-trace';
 import { hapticMedium } from '@/lib/haptics';
 import {
@@ -71,13 +71,14 @@ export function useTuner(active: boolean, a4 = DEFAULT_A4, response: 'stable' | 
     });
     await enqueueAudio(async () => {
       if (audioClaim() === 'phrase') return;
-      if (captureReleaseIsBlocked(audioMode())) return;
+      // always tell the engine the tuner closed: with the click running it keeps the graph and only stops
+      // listening, so this can never interrupt playback
       try {
         await PocktTiming?.stopTuner();
       } catch {
         /* session restore is best-effort */
       }
-      if (audioMode() === 'TUNER_CAPTURE') commitAudioMode('IDLE');
+      if (audioMode() === 'TUNER_CAPTURE') commitAudioMode(PocktTiming?.isRunning?.() ? 'PLAYBACK' : 'IDLE');
     });
   }, []);
 

@@ -47,8 +47,28 @@ final class PocktTimingEngine {
   private let haptics = PocktHapticScheduler()
   let diagnostics = PocktDiagnostics()
 
-  private let renderQueue = DispatchQueue(label: "com.pockt.timing.chunks", qos: .userInitiated)
+  /// The click scheduler runs here, never on the main thread: a busy UI (a face mounting, a sheet opening)
+  /// must not be able to starve it. Every read and write of the scheduler state holds `sched`.
+  private let renderQueue = DispatchQueue(label: "com.pockt.timing.chunks", qos: .userInteractive)
+  let sched = NSRecursiveLock()
   private var refillTimer: DispatchSourceTimer?
+  private var recoverQueued = false
+  // the beat grid in host time, so a graph restart (mic on, route change) resumes on the same grid
+  private var gridAnchorTick: Int64 = -1
+  private var gridAnchorHost: Double = 0
+  private var gridAnchorSpt: Double = 0.5
+  private var gridLostTicks: Int = 0
+  private var missedTicks: Int = 0
+  // the shared microphone tap (tuner and looper), and the clicks the tuner must not hear as notes
+  private var micTap = false
+  private var tunerMeasurement = false
+  private var tunerAccum = [Float](repeating: 0, count: 4096)
+  private var tunerAccumCount = 0
+  private var tunerSinceAnalysis = 0
+  private var tunerFeedBuffer: AVAudioPCMBuffer?
+  private var clickHostRing = [Double](repeating: 0, count: 16)
+  private var clickHostIdx = 0
+  private var clickGuardActive = false
 
   private var config = PocktEngineConfig.default
   private var generation: UInt64 = 0
@@ -125,6 +145,8 @@ final class PocktTimingEngine {
   }
 
   func prepare(uris: [String: String] = [:]) throws {
+    sched.lock()
+    defer { sched.unlock() }
     clickUris = uris
     lastPrepareReport = try bootAudioGraph(reloadClicks: true)
     safeHapticsPrepare()
@@ -140,6 +162,8 @@ final class PocktTimingEngine {
   }
 
   func reclaimSession() throws -> [String: Any] {
+    sched.lock()
+    defer { sched.unlock() }
     _ = try restorePlaybackGraph(reloadClicks: !clicks.isLoaded)
     NSLog(
       "[POCKT] session reclaimed engineRunning=%d playerPlaying=%d lifecycle=%@",
@@ -152,11 +176,15 @@ final class PocktTimingEngine {
 
   /// One-shot pendulum start: optional cue, then first musical click at the first endpoint.
   func armPendulumStart(pickupBeats: Double, playCue: Bool = true) {
+    sched.lock()
+    defer { sched.unlock() }
     pendingPickupBeats = min(1, max(0, pickupBeats))
     pendingStartCue = playCue && pendingPickupBeats > 0
   }
 
   func applyConfig(_ next: PocktEngineConfig) {
+    sched.lock()
+    defer { sched.unlock() }
     let previous = config
     config = next
     guard running else { return }
@@ -219,11 +247,11 @@ final class PocktTimingEngine {
 
   @discardableResult
   func start(with next: PocktEngineConfig) throws -> [String: Any] {
+    sched.lock()
+    defer { sched.unlock() }
     lifecycle = .starting
-    if tunerLive {
-      stopTuner()
-    }
-    if inputCapture && !loop.wantsInput {
+    // The tuner keeps listening when Play is pressed: the click joins the open graph.
+    if inputCapture && !loop.wantsInput && !tunerLive {
       NSLog("[POCKT] start releasing leftover input capture before playback")
       inputCapture = false
       _ = try restorePlaybackGraph(reloadClicks: false)
@@ -326,6 +354,8 @@ final class PocktTimingEngine {
   }
 
   func stop() {
+    sched.lock()
+    defer { sched.unlock() }
     if loop.phase != .idle { loopReleaseCore() }
     NSLog("[POCKT] Stop requested running=%d generation=%llu", running ? 1 : 0, generation)
     guard running else {
@@ -334,10 +364,23 @@ final class PocktTimingEngine {
       return
     }
     invalidate(generationBump: true, emitState: true)
-    lifecycle = .stopped
+    lifecycle = tunerLive ? .tunerInput : .stopped
+    if !tunerLive {
+      loop.capturing = false
+      removeMicTap(force: true)
+    }
+    if inputCapture && !tunerLive && !micTap {
+      // nothing listens any more: hand the session back to playback so the mic indicator goes out
+      inputCapture = false
+      tunerMeasurement = false
+      freshEngine()
+      _ = try? restorePlaybackGraph(reloadClicks: true)
+    }
   }
 
   func preview(sound: String, volume: Double) {
+    sched.lock()
+    defer { sched.unlock() }
     do {
       try playPreview(sound: sound, volume: volume)
     } catch {
@@ -346,6 +389,8 @@ final class PocktTimingEngine {
   }
 
   func cancelPreview() {
+    sched.lock()
+    defer { sched.unlock() }
     previewGeneration += 1
     guard previewPlayer.engine != nil else { return }
     if previewPlayer.isPlaying {
@@ -526,6 +571,8 @@ final class PocktTimingEngine {
   }
 
   private func playUiDetentLocked(kind: String, playAudio: Bool, playHaptic: Bool) -> Bool {
+    sched.lock()
+    defer { sched.unlock() }
     // Isolated from musical start(). A start-in-flight metronome must not mute BPM detents.
     let audioOk: Bool
     if playAudio {
@@ -608,6 +655,8 @@ final class PocktTimingEngine {
   /// Short in-tune chime on the already-running tuner engine.
   /// Does not reconfigure the session. Pitch analysis ignores the tone window.
   func playTuneConfirm() {
+    sched.lock()
+    defer { sched.unlock() }
     guard tunerLive, engine.isRunning else { return }
       tunerConfirmMuteUntil = Date().timeIntervalSince1970 + 0.34
     let work: () -> Void = { [weak self] in
@@ -649,6 +698,8 @@ final class PocktTimingEngine {
   }
 
   func playReferenceTone(frequency: Double, durationSeconds: Double = 0.9) {
+    sched.lock()
+    defer { sched.unlock() }
     let work: () -> Void = { [weak self] in
       guard let self else { return }
       do {
@@ -708,6 +759,8 @@ final class PocktTimingEngine {
   }
 
   func metronomeSelfTest120() throws -> [String: Any] {
+    sched.lock()
+    defer { sched.unlock() }
     NSLog("[POCKT] V13 sample-schedule self-test started")
     var test = PocktEngineConfig.default
     test.bpm = 120
@@ -843,6 +896,8 @@ final class PocktTimingEngine {
   }
 
   func runAudioSanityTest(sound: String, volume: Double) throws -> [String: Any] {
+    sched.lock()
+    defer { sched.unlock() }
     try playPreview(sound: sound, volume: volume)
     var probe = audioProbe()
     probe["sanityScheduled"] = true
@@ -852,6 +907,8 @@ final class PocktTimingEngine {
   }
 
   func teardown() {
+    sched.lock()
+    defer { sched.unlock() }
     stopTuner()
     invalidate(generationBump: true, emitState: false)
     removeObservers()
@@ -864,6 +921,8 @@ final class PocktTimingEngine {
   }
 
   func nativeState() -> [String: Any] {
+    sched.lock()
+    defer { sched.unlock() }
     var info = audioProbe()
     info["running"] = running
     info["generation"] = Double(generation)
@@ -876,12 +935,17 @@ final class PocktTimingEngine {
     info["scheduledThroughSample"] = Double(scheduledThroughSample)
     info["queuedChunkCount"] = queuedChunkCount
     info["refillCount"] = refillCount
+    info["missedTicks"] = missedTicks
+    info["gridLostTicks"] = gridLostTicks
+    info["schedulerThread"] = "renderQueue"
     info["architecture"] = architecture
     info["measurementKind"] = PocktTransportMath.architecture
     return info
   }
 
   func startReport() -> [String: Any] {
+    sched.lock()
+    defer { sched.unlock() }
     var info = nativeState()
     info["firstScheduledSample"] = Double(initialEventSamples.first ?? originSample)
     info["scheduledEventCount"] = scheduledEventCount
@@ -912,6 +976,8 @@ final class PocktTimingEngine {
   }
 
   func liveDiagnostics() -> [String: Any] {
+    sched.lock()
+    defer { sched.unlock() }
     var snap = diagnostics.snapshot(
       bpm: config.bpm,
       subdivision: config.subdivision,
@@ -930,6 +996,8 @@ final class PocktTimingEngine {
     snap["scheduledEventCount"] = scheduledEventCount
     snap["beatEventsEmitted"] = beatEventsEmitted
     snap["refillCount"] = refillCount
+    snap["missedTicks"] = missedTicks
+    snap["gridLostTicks"] = gridLostTicks
     snap["scheduledThroughSample"] = Double(scheduledThroughSample)
     snap["queuedChunkCount"] = queuedChunkCount
     snap["architecture"] = architecture
@@ -973,6 +1041,10 @@ final class PocktTimingEngine {
     initialEventAccents.removeAll()
     firstChunkBuffer = nil
     missingSoundLogged.removeAll()
+    gridAnchorTick = -1
+    gridAnchorHost = 0
+    gridLostTicks = 0
+    missedTicks = 0
     diagnostics.reset()
     tempoSegments = [
       PocktTransportMath.initialSegment(bpm: config.bpm, ticksPerBeat: config.ticksPerBeat)
@@ -1039,7 +1111,7 @@ final class PocktTimingEngine {
       firstChunkNonZeroSampleCount
     )
 
-    captureHapticOrigin(Double(origin - now) / max(1, sampleRate))
+    captureHapticOrigin(hapticOriginDelay())
     armRefillTimer(generation: gen)
     if !player.isPlaying {
       try PocktAudioSession.perform(.playerPlay) {
@@ -1098,6 +1170,8 @@ final class PocktTimingEngine {
   }
 
   private func recoverPlaybackPreservingPhase() {
+    sched.lock()
+    defer { sched.unlock() }
     guard running else { return }
     defer { DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in self?.loopRescheduleAfterRecovery() } }
     let preservedTick = max(lastScheduledTick ?? nextMusicalEventIndex, 0)
@@ -1119,23 +1193,42 @@ final class PocktTimingEngine {
       playerPlayCalled = true
       playerStartedThisGeneration = true
       waitForPlayerTimeline(timeout: 0.12)
+      sampleRate = actualSampleRate()
+      let rate = max(1, sampleRate)
       let now = currentPlayerSample() ?? 0
-      let origin = now + Int64((0.08 * max(1, sampleRate)).rounded())
+      var startTick = lastScheduledTick ?? 0
+      var origin = now + Int64((0.08 * rate).rounded())
+      // Resume on the same beat grid in host time: the clicks keep their places, as if the graph had never
+      // restarted. A click that fell inside the restart itself is the only one that can be lost.
+      if gridAnchorTick >= 0, gridAnchorHost > 0, gridAnchorSpt > 0,
+         let nowHost = hostSeconds(forPlayerSample: now) {
+        let earliest = nowHost + 0.03
+        let steps = Int64(((earliest - gridAnchorHost) / gridAnchorSpt).rounded(.up))
+        let k = max(0, gridAnchorTick + steps)
+        let kHost = gridAnchorHost + Double(k - gridAnchorTick) * gridAnchorSpt
+        let lost = max(0, k - preservedTick - 1)
+        gridLostTicks += Int(lost)
+        startTick = k
+        origin = now + Int64(((kHost - nowHost) * rate).rounded())
+        nextMusicalEventIndex = k
+        lastScheduledTick = k > 0 ? k - 1 : nil
+        NSLog("[POCKT] grid-preserving recovery resume tick=%lld (preserved %lld, lost %lld)", k, preservedTick, lost)
+      }
       originSample = origin
       tempoSegments = [
         PocktTempoSegment(
-          startTick: lastScheduledTick ?? 0,
+          startTick: startTick,
           startSample: origin,
           bpm: preservedConfig.bpm,
           ticksPerBeat: preservedConfig.ticksPerBeat
         )
       ]
-      if lastScheduledTick == nil {
+      if lastScheduledTick == nil && startTick == 0 {
         nextMusicalEventIndex = 0
       }
       visualOriginHostTime = mach_absolute_time()
       scheduleUntilHorizon(generation: generation)
-      captureHapticOrigin(Double(origin - now) / max(1, sampleRate))
+      captureHapticOrigin(hapticOriginDelay())
       armRefillTimer(generation: generation)
     } catch {
       NSLog("[POCKT] phase-preserving recovery failed: %@", error.localizedDescription)
@@ -1158,6 +1251,8 @@ final class PocktTimingEngine {
         lastScheduledTick: lastScheduledTick
       )
       if decision == .skipMissed {
+        missedTicks += 1
+        NSLog("[POCKT] MISSED tick %lld (scheduler late)", tick)
         nextMusicalEventIndex = tick + 1
         continue
       }
@@ -1165,6 +1260,11 @@ final class PocktTimingEngine {
         break
       }
       scheduleTick(tick, at: sample, generation: gen)
+      if let host = hostSeconds(forPlayerSample: sample) {
+        gridAnchorTick = tick
+        gridAnchorHost = host
+        gridAnchorSpt = PocktTransportMath.segment(forTick: tick, segments: tempoSegments).secondsPerTick
+      }
       nextMusicalEventIndex = tick + 1
       lastScheduledTick = tick
       scheduledThroughSample = sample
@@ -1196,6 +1296,10 @@ final class PocktTimingEngine {
       }
       let when = AVAudioTime(sampleTime: sample, atRate: sampleRate)
       player.scheduleBuffer(scaled, at: when, options: [])
+      if tunerLive, let host = hostSeconds(forPlayerSample: sample) {
+        clickHostRing[clickHostIdx % clickHostRing.count] = host + player.outputPresentationLatency
+        clickHostIdx &+= 1
+      }
       scheduledAudioCount += 1
       queuedChunkCount += 1
       if firstChunkBuffer == nil {
@@ -1309,12 +1413,27 @@ final class PocktTimingEngine {
     )
     timer.setEventHandler { [weak self] in
       guard let self else { return }
-      DispatchQueue.main.async {
-        guard self.generation == gen, self.running else { return }
-        self.refillCount += 1
-        self.refillIfNeeded(generation: gen)
-        self.scheduleControlUntilHorizon(generation: gen)
+      self.sched.lock()
+      defer { self.sched.unlock() }
+      guard self.generation == gen, self.running else { return }
+      self.refillCount += 1
+      if self.playerStartedThisGeneration && !self.player.isPlaying && self.engine.isRunning {
+        // the player itself stopped: graph work belongs on the main thread, once
+        if !self.recoverQueued {
+          self.recoverQueued = true
+          DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.sched.lock()
+            defer { self.sched.unlock() }
+            self.recoverQueued = false
+            guard self.generation == gen, self.running, !self.player.isPlaying else { return }
+            NSLog("[POCKT] player stopped unexpectedly; recovering on the same beat grid")
+            self.recoverPlaybackPreservingPhase()
+          }
+        }
+        return
       }
+      self.scheduleUntilHorizon(generation: gen)
     }
     timer.resume()
     refillTimer = timer
@@ -1545,6 +1664,25 @@ final class PocktTimingEngine {
     return sample
   }
 
+  /// Host seconds at which player sample `s` reaches the output, from the player's last render time.
+  private func hostSeconds(forPlayerSample s: Int64) -> Double? {
+    guard let nodeTime = player.lastRenderTime, nodeTime.isSampleTimeValid, nodeTime.isHostTimeValid,
+          let pt = player.playerTime(forNodeTime: nodeTime), pt.isSampleTimeValid else { return nil }
+    return AVAudioTime.seconds(forHostTime: nodeTime.hostTime) + Double(s - pt.sampleTime) / max(1, sampleRate)
+  }
+
+  /// Haptic events are given as player-sample seconds; their origin is player sample 0, heard at the output.
+  private func hapticOriginDelay() -> Double {
+    let machNow = AVAudioTime.seconds(forHostTime: mach_absolute_time())
+    guard let h0 = hostSeconds(forPlayerSample: 0) else {
+      return -Double(currentAbsoluteSample()) / max(1, sampleRate)
+    }
+    var d = h0 - machNow
+    let pres = presentationOffset(AVAudioSession.sharedInstance())
+    if pres.trusted { d += pres.seconds }
+    return d
+  }
+
   private func currentAbsoluteSample() -> Int64 {
     if let sample = currentPlayerSample() {
       return sample
@@ -1585,6 +1723,8 @@ final class PocktTimingEngine {
 
   /// Immediate mixer gain only. Never stops, reschedules, or resets phase.
   func setMasterGain(_ volume: Double) {
+    sched.lock()
+    defer { sched.unlock() }
     let safe = min(1, max(0, volume.isFinite ? volume : 0.8))
     config.volume = safe
     engine.mainMixerNode.outputVolume = clampedAudibleVolume(safe)
@@ -1636,6 +1776,8 @@ final class PocktTimingEngine {
   }
 
   func setInputCapture(_ enabled: Bool) throws {
+    sched.lock()
+    defer { sched.unlock() }
     inputCapture = enabled
     if enabled {
       lifecycle = lifecycle == .playing ? .playing : .recording
@@ -1652,10 +1794,34 @@ final class PocktTimingEngine {
   }
 
   func startTuner() throws -> [String: Any] {
-    if running {
-      stop()
-    }
+    sched.lock()
+    defer { sched.unlock() }
     try requireMicrophonePermission()
+    tunerAccumCount = 0
+    tunerSinceAnalysis = 0
+    for i in 0..<clickHostRing.count { clickHostRing[i] = 0 }
+    updateClickGuard()
+    // The clock never stops for the tuner. While it plays (or the looper already holds the mic) the
+    // microphone joins the running graph on the same beat grid.
+    let micOpen = micTap && inputCapture && engine.isRunning
+    if running || micOpen {
+      tunerBuffersReceived = 0
+      tunerLastRms = 0
+      tunerLastFrequency = 0
+      tunerLastConfidence = 0
+      if !micOpen {
+        guard try openSharedInput() else {
+          throw NSError(domain: "PocktTiming", code: 44, userInfo: [NSLocalizedDescriptionKey: "Microphone tap refused by the audio engine"])
+        }
+      }
+      let hw = engine.inputNode.inputFormat(forBus: 0)
+      tunerInputSampleRate = hw.sampleRate
+      tunerInputChannels = Int(hw.channelCount)
+      tunerLive = true
+      lastAudioLifecycleOp = "startTuner-withClick"
+      NSLog("[POCKT TUNER] started alongside the click sr=%g guard=%d", hw.sampleRate, clickGuardActive ? 1 : 0)
+      return tunerSnapshot(status: "initializing")
+    }
     tunerLive = false
     removeTunerTap()
     tunerBuffersReceived = 0
@@ -1668,6 +1834,7 @@ final class PocktTimingEngine {
       engine.stop()
     }
     inputCapture = true
+    tunerMeasurement = true
     do {
       try configureTunerSession()
       settleTunerInputRoute()
@@ -1710,19 +1877,29 @@ final class PocktTimingEngine {
       tunerLive = false
       removeTunerTap()
       inputCapture = false
+      tunerMeasurement = false
       _ = try? restorePlaybackGraph(reloadClicks: false)
       throw error
     }
   }
 
   func stopTuner() {
+    sched.lock()
+    defer { sched.unlock() }
     lastAudioLifecycleOp = "stopTuner"
     tunerLive = false
     removeTunerTap()
     tunerBuffersReceived = 0
     tunerLastFrequency = 0
     tunerLastConfidence = 0
+    if running {
+      // Closing the mic would restart the graph under the clock. It stays open until Stop.
+      if lifecycle == .tunerInput { lifecycle = .playing }
+      return
+    }
+    if loop.wantsInput && micTap { return }
     inputCapture = false
+    tunerMeasurement = false
     freshEngine()
     do {
       _ = try restorePlaybackGraph(reloadClicks: true)
@@ -1826,10 +2003,6 @@ final class PocktTimingEngine {
 
   @discardableResult
   private func installTunerTap(using format: AVAudioFormat) throws -> AVAudioFormat {
-    if tunerTapInstalled {
-      engine.inputNode.removeTap(onBus: 0)
-      tunerTapInstalled = false
-    }
     guard format.sampleRate > 0, format.channelCount > 0 else {
       throw NSError(
         domain: "PocktTiming",
@@ -1852,36 +2025,118 @@ final class PocktTimingEngine {
         ? (tapFormat ?? nodeFormat).channelCount
         : format.channelCount
     )
-    let ok = installTapSafely(on: input, bufferSize: 4096) { [weak self] buffer, _ in
-      guard let self, self.tunerLive else { return }
-      if Date().timeIntervalSince1970 < self.tunerConfirmMuteUntil { return }
-      self.tunerBuffersReceived += 1
-      var payload = PocktTuner.analyze(buffer: buffer)
-      let rms = (payload["rms"] as? Double) ?? 0
-      self.tunerLastRms = rms
-      self.tunerLastFrequency = (payload["frequency"] as? Double) ?? 0
-      self.tunerLastConfidence = (payload["confidence"] as? Double) ?? 0
-      payload["buffersReceived"] = self.tunerBuffersReceived
-      payload["inputSampleRate"] = self.tunerInputSampleRate
-      payload["inputChannelCount"] = self.tunerInputChannels
-      payload["listeningProven"] = true
-      payload["permission"] = "granted"
-      self.emitTunerPitch(payload)
-    }
+    micTap = false
+    let ok = installMicTap()
     guard ok else {
       throw NSError(domain: "PocktTiming", code: 44, userInfo: [NSLocalizedDescriptionKey: "Microphone tap refused by the audio engine"])
     }
-    tunerTapInstalled = true
     return format
   }
 
   private func removeTunerTap() {
-    guard tunerTapInstalled else { return }
-    engine.inputNode.removeTap(onBus: 0)
-    tunerTapInstalled = false
+    removeMicTap(force: false)
   }
 
+  /// One microphone tap feeds the looper and the tuner, so either can run while the other does.
+  private func installMicTap() -> Bool {
+    if micTap { return true }
+    _ = PocktTryObjC({ self.engine.inputNode.removeTap(onBus: 0) }, nil)
+    let ok = installTapSafely(on: engine.inputNode, bufferSize: 2048) { [weak self] buffer, when in
+      guard let self else { return }
+      self.loopCapture(buffer: buffer, when: when)
+      if self.tunerLive { self.tunerFeed(buffer: buffer, when: when) }
+    }
+    micTap = ok
+    tunerTapInstalled = ok
+    loop.tapInstalled = ok
+    return ok
+  }
+
+  /// Removes the tap unless the tuner (or, without `force`, the looper) still listens. Never restarts the graph.
+  private func removeMicTap(force: Bool) {
+    guard micTap else { return }
+    if !force && (tunerLive || loop.wantsInput) { return }
+    if force && tunerLive { return }
+    _ = PocktTryObjC({ self.engine.inputNode.removeTap(onBus: 0) }, nil)
+    micTap = false
+    tunerTapInstalled = false
+    loop.tapInstalled = false
+  }
+
+  private func updateClickGuard() {
+    let port = AVAudioSession.sharedInstance().currentRoute.outputs.first?.portType
+    clickGuardActive = port == .builtInSpeaker || port == .builtInReceiver
+  }
+
+  /// Audio input thread: a sliding 4096-sample window, analysed every 2048 new samples. While the click plays
+  /// through the phone's own speaker, a window that holds a click is skipped, so the tuner reads the
+  /// instrument and not the metronome. Headphones need no such guard.
+  private func tunerFeed(buffer: AVAudioPCMBuffer, when: AVAudioTime) {
+    guard let ch = buffer.floatChannelData else { return }
+    let n = Int(buffer.frameLength)
+    if n <= 0 { return }
+    if Date().timeIntervalSince1970 < tunerConfirmMuteUntil { return }
+    let chans = max(1, Int(buffer.format.channelCount))
+    let rate = buffer.format.sampleRate
+    let cap = tunerAccum.count
+    tunerAccum.withUnsafeMutableBufferPointer { acc in
+      guard let base = acc.baseAddress else { return }
+      if n >= cap {
+        for k in 0..<cap {
+          let i = n - cap + k
+          var v: Float = 0
+          for c in 0..<chans { v += ch[c][i] }
+          base[k] = v / Float(chans)
+        }
+      } else {
+        memmove(base, base + n, (cap - n) * MemoryLayout<Float>.stride)
+        for i in 0..<n {
+          var v: Float = 0
+          for c in 0..<chans { v += ch[c][i] }
+          base[cap - n + i] = v / Float(chans)
+        }
+      }
+    }
+    tunerAccumCount = min(cap, tunerAccumCount + n)
+    tunerSinceAnalysis += n
+    guard tunerAccumCount >= cap, tunerSinceAnalysis >= 2048 else { return }
+    tunerSinceAnalysis = 0
+    if running && clickGuardActive {
+      let end = when.isHostTimeValid
+        ? AVAudioTime.seconds(forHostTime: when.hostTime) + Double(n) / max(1, rate)
+        : AVAudioTime.seconds(forHostTime: mach_absolute_time())
+      let start = end - Double(cap) / max(1, rate)
+      for h in clickHostRing where h > 0 && h > start - 0.07 && h < end + 0.01 { return }
+    }
+    if tunerFeedBuffer == nil || tunerFeedBuffer?.format.sampleRate != rate {
+      if let f = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 1) {
+        tunerFeedBuffer = AVAudioPCMBuffer(pcmFormat: f, frameCapacity: AVAudioFrameCount(cap))
+      }
+    }
+    guard let fb = tunerFeedBuffer, let dst = fb.floatChannelData else { return }
+    tunerAccum.withUnsafeBufferPointer { acc in
+      if let b = acc.baseAddress { dst[0].update(from: b, count: cap) }
+    }
+    fb.frameLength = AVAudioFrameCount(cap)
+    tunerBuffersReceived += 1
+    var payload = PocktTuner.analyze(buffer: fb)
+    let rms = (payload["rms"] as? Double) ?? 0
+    tunerLastRms = rms
+    tunerLastFrequency = (payload["frequency"] as? Double) ?? 0
+    tunerLastConfidence = (payload["confidence"] as? Double) ?? 0
+    payload["buffersReceived"] = tunerBuffersReceived
+    payload["inputSampleRate"] = tunerInputSampleRate
+    payload["inputChannelCount"] = tunerInputChannels
+    payload["listeningProven"] = true
+    payload["permission"] = "granted"
+    payload["withClick"] = running
+    emitTunerPitch(payload)
+  }
+
+
   func tunerSnapshot(status: String) -> [String: Any] {
+    sched.lock()
+    defer { sched.unlock() }
     let session = AVAudioSession.sharedInstance()
     let permission: String
     switch session.recordPermission {
@@ -1934,10 +2189,14 @@ final class PocktTimingEngine {
   /// already claims to be running.
   @discardableResult
   func restorePlaybackGraph(reloadClicks: Bool) throws -> [String: Any] {
+    sched.lock()
+    defer { sched.unlock() }
     lastAudioLifecycleOp = "restorePlaybackGraph"
     cancelPreview()
-    removeTunerTap()
-    tunerLive = false
+    if !inputCapture {
+      tunerLive = false
+      removeMicTap(force: true)
+    }
     // Keep playAndRecord while the session recorder is armed so Play cannot
     // drop the microphone or terminate an in-flight take.
     let keepCapture = inputCapture
@@ -1946,7 +2205,9 @@ final class PocktTimingEngine {
     }
     // While the session recorder is armed, do not stop/disconnect the player —
     // that restarts the graph and can terminate an in-flight take.
-    let skipRebuild = keepCapture && player.engine != nil
+    let playerWired = player.engine === engine
+      && !engine.outputConnectionPoints(for: player, outputBus: 0).isEmpty
+    let skipRebuild = keepCapture && playerWired && engine.isRunning
     if !skipRebuild, engine.isRunning {
       NSLog("[POCKT] stopping running engine before playback session restore")
       engine.stop()
@@ -2034,6 +2295,8 @@ final class PocktTimingEngine {
   }
 
   func audioLifecycleStress() throws -> [String: Any] {
+    sched.lock()
+    defer { sched.unlock() }
     var failures: [String] = []
     func note(_ label: String, _ ok: Bool) {
       if !ok { failures.append(label) }
@@ -2125,7 +2388,9 @@ final class PocktTimingEngine {
 
   private func configureSession() throws {
     try PocktAudioSession.perform(.configureAudioSession) {
-      if self.inputCapture {
+      if self.inputCapture && self.tunerMeasurement {
+        try PocktAudioSession.shared.applyTuner()
+      } else if self.inputCapture {
         try PocktAudioSession.shared.applyRecording()
       } else {
         try PocktAudioSession.shared.applyPlayback(mixWithOthers: self.config.mixWithOthers)
@@ -2222,6 +2487,8 @@ final class PocktTimingEngine {
   }
 
   func audioProbe() -> [String: Any] {
+    sched.lock()
+    defer { sched.unlock() }
     let session = AVAudioSession.sharedInstance()
     var info: [String: Any] = [:]
     let sessionSnap = PocktAudioSession.shared.snapshot()
@@ -2346,11 +2613,14 @@ final class PocktTimingEngine {
   /// A brand-new AVAudioEngine with no input node in its graph. Every player node moves across; the next
   /// restore wires them up and reloads the clicks. Only while the clock is stopped.
   func freshEngine() {
+    sched.lock()
+    defer { sched.unlock() }
     guard !running else { return }
     let old = engine
     _ = PocktTryObjC({ old.inputNode.removeTap(onBus: 0) }, nil)
     tunerTapInstalled = false
     loop.tapInstalled = false
+    micTap = false
     old.stop()
     for node in [player, previewPlayer, loop.player] + uiClickPlayers where node.engine === old {
       node.stop()
@@ -2371,6 +2641,8 @@ final class PocktTimingEngine {
   }
 
   private func handleInterruption(_ notification: Notification) {
+    sched.lock()
+    defer { sched.unlock() }
     guard
       let info = notification.userInfo,
       let typeValue = info[AVAudioSessionInterruptionTypeKey] as? UInt,
@@ -2400,6 +2672,8 @@ final class PocktTimingEngine {
   }
 
   private func handleSessionRouteChange(_ notification: Notification) {
+    sched.lock()
+    defer { sched.unlock() }
     let reasonValue = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
     let reason = reasonValue.flatMap { AVAudioSession.RouteChangeReason(rawValue: $0) }
     if reason == .oldDeviceUnavailable && config.headphoneStop && running {
@@ -2411,6 +2685,9 @@ final class PocktTimingEngine {
   }
 
   private func handleRouteChange() {
+    sched.lock()
+    defer { sched.unlock() }
+    updateClickGuard()
     guard prepared else { return }
     sampleRate = actualSampleRate()
     let format = engine.mainMixerNode.outputFormat(forBus: 0)
@@ -2519,7 +2796,8 @@ extension PocktTimingEngine {
 
   private func loopEnsureTimer() {
     guard loop.timer == nil else { return }
-    let t = DispatchSource.makeTimerSource(queue: .main)
+    // the loop is queued from the scheduler's queue, so a busy main thread cannot starve it either
+    let t = DispatchSource.makeTimerSource(queue: renderQueue)
     t.schedule(deadline: .now(), repeating: .milliseconds(40))
     t.setEventHandler { [weak self] in self?.loopTick() }
     t.resume()
@@ -2527,6 +2805,8 @@ extension PocktTimingEngine {
   }
 
   private func loopTick() {
+    sched.lock()
+    defer { sched.unlock() }
     loopRefreshMap()
     if loop.phase == .playing { loopScheduleAhead() }
     if loop.phase == .idle || loop.phase == .ready {
@@ -2548,16 +2828,36 @@ extension PocktTimingEngine {
   /// engine is down, then the engine starts with the input live. If the click was running it picks up again
   /// on its own timeline. The tap stays on until the mic is released; takes just switch capture on and off.
   func loopPrepare() throws -> Bool {
+    sched.lock()
+    defer { sched.unlock() }
     try requireMicrophonePermission()
     loop.wantsInput = true
-    if loop.tapInstalled && engine.isRunning { return true }
+    if micTap && inputCapture && engine.isRunning {
+      if loop.raw == nil { loopAllocRaw(rate: liveInputRate()) }
+      return true
+    }
     return try loopOpenInput()
+  }
+
+  private func liveInputRate() -> Double {
+    let r = engine.inputNode.inputFormat(forBus: 0).sampleRate
+    return r > 0 ? r : max(8000, AVAudioSession.sharedInstance().sampleRate)
   }
 
   @discardableResult
   private func loopOpenInput() throws -> Bool {
+    let ok = try openSharedInput()
+    if ok { loopAllocRaw(rate: liveInputRate()) }
+    return ok
+  }
+
+  /// Opens the microphone for the looper and the tuner. The click's graph has to restart once for the
+  /// record session; the clock resumes on its own beat grid (see recoverPlaybackPreservingPhase).
+  @discardableResult
+  private func openSharedInput() throws -> Bool {
     let wasRunning = running
     inputCapture = true
+    tunerMeasurement = false
     if engine.isRunning { engine.stop() }
     try configureSession()
     // the input format settles a moment after the switch to record mode
@@ -2573,13 +2873,10 @@ extension PocktTimingEngine {
       try? startEngineAfterInput(wasRunning: wasRunning)
       return false
     }
-    loopAllocRaw(rate: hw.sampleRate)
-    tunerTapInstalled = false
-    let ok = installTapSafely(on: engine.inputNode, bufferSize: 1024) { [weak self] buffer, when in
-      self?.loopCapture(buffer: buffer, when: when)
-    }
-    loop.tapInstalled = ok
+    micTap = false
+    let ok = installMicTap()
     if !ok { loop.tapError = "microphone refused" }
+    updateClickGuard()
     try startEngineAfterInput(wasRunning: wasRunning)
     return ok
   }
@@ -2616,7 +2913,11 @@ extension PocktTimingEngine {
     loop.blocks = 0
     loop.tapError = ""
     loop.wantsInput = true
-    if !loop.tapInstalled || !inputCapture { try loopOpenInput() }
+    if !micTap || !inputCapture || !engine.isRunning {
+      try loopOpenInput()
+    } else if loop.raw == nil {
+      loopAllocRaw(rate: liveInputRate())
+    }
     loopRefreshMap()
     loopEnsureTimer()
     loop.capturing = true
@@ -2628,11 +2929,13 @@ extension PocktTimingEngine {
 
   private func loopRemoveTap() {
     loop.capturing = false
-    if loop.tapInstalled { _ = PocktTryObjC({ self.engine.inputNode.removeTap(onBus: 0) }, nil); loop.tapInstalled = false }
+    removeMicTap(force: true)   // the tuner may still be listening
   }
 
   /// Starts capturing for the first take; it begins on the downbeat of `startMeasure`.
   func loopArm(startMeasure: Int) throws -> Bool {
+    sched.lock()
+    defer { sched.unlock() }
     guard running else { return false }
     loopHalt()
     loop.startMeasure = startMeasure
@@ -2650,6 +2953,8 @@ extension PocktTimingEngine {
   /// Starts capturing a new layer over the playing loop; the layer is one full pass from the loop start
   /// at measure `passStartMeasure`.
   func loopArmLayer() throws -> Bool {
+    sched.lock()
+    defer { sched.unlock() }
     guard running, loop.phase == .playing, loop.length > 0, loop.layers.count < 6 else { return false }
     try loopBeginCapture()
     return true
@@ -2746,6 +3051,8 @@ extension PocktTimingEngine {
   /// Ends the first take on the downbeat of `endMeasure` (call just after it was heard) and starts
   /// playback from that same downbeat, so the loop comes back seamlessly. Returns {ok, reason, bars}.
   func loopFinalize(endMeasure: Int, jsStartHost: Double, jsEndHost: Double) -> [String: Any] {
+    sched.lock()
+    defer { sched.unlock() }
     func fail(_ reason: String) -> [String: Any] {
       NSLog("[POCKT LOOP] take failed: %@", reason)
       loopEndCapture()
@@ -2783,6 +3090,8 @@ extension PocktTimingEngine {
 
   /// Ends a layer: the pass that began on the loop start at `passStartMeasure` and ended one loop later.
   func loopFinalizeLayer(passStartMeasure: Int, jsStartHost: Double, jsEndHost: Double) -> [String: Any] {
+    sched.lock()
+    defer { sched.unlock() }
     func fail(_ reason: String) -> [String: Any] {
       NSLog("[POCKT LOOP] layer failed: %@", reason)
       loopEndCapture()
@@ -2809,6 +3118,8 @@ extension PocktTimingEngine {
 
   /// Drops the capture of a layer in progress (the loop keeps playing).
   func loopCancelLayer() {
+    sched.lock()
+    defer { sched.unlock() }
     loopEndCapture()
   }
 
@@ -2816,6 +3127,8 @@ extension PocktTimingEngine {
 
   /// Undo the last layer (kept for redo); the first take itself is never undone, use clear.
   func loopUndo() -> [String: Any] {
+    sched.lock()
+    defer { sched.unlock() }
     guard loop.layers.count > 1 else { return ["ok": false, "layers": loop.layers.count] }
     loop.redo = loop.layers.removeLast()
     loop.muted.removeLast()
@@ -2825,6 +3138,8 @@ extension PocktTimingEngine {
   }
 
   func loopRedo() -> [String: Any] {
+    sched.lock()
+    defer { sched.unlock() }
     guard let r = loop.redo else { return ["ok": false, "layers": loop.layers.count] }
     loop.layers.append(r)
     loop.muted.append(false)
@@ -2835,6 +3150,8 @@ extension PocktTimingEngine {
   }
 
   func loopSetLayerMuted(_ index: Int, _ muted: Bool) -> Bool {
+    sched.lock()
+    defer { sched.unlock() }
     guard index >= 0, index < loop.layers.count else { return false }
     loop.muted[index] = muted
     loopRebuildMix()
@@ -2843,6 +3160,8 @@ extension PocktTimingEngine {
   }
 
   func loopDeleteLayer(_ index: Int) -> [String: Any] {
+    sched.lock()
+    defer { sched.unlock() }
     guard index >= 0, index < loop.layers.count else { return ["ok": false, "layers": loop.layers.count] }
     if loop.layers.count == 1 { loopClear(); return ["ok": true, "layers": 0] }
     loop.layers.remove(at: index)
@@ -2870,6 +3189,8 @@ extension PocktTimingEngine {
 
   /// Plays the loop from the downbeat of `fromMeasure`, a new cycle every `bars` measures, until halted.
   func loopPlay(fromMeasure: Int) -> Bool {
+    sched.lock()
+    defer { sched.unlock() }
     guard running, loop.mix != nil, loop.bars > 0, loop.phase == .ready || loop.phase == .playing else { return false }
     guard engine.isRunning else { return false }
     if loop.player.engine != nil { loop.player.stop() }
@@ -2925,11 +3246,15 @@ extension PocktTimingEngine {
   }
 
   func loopHalt() {
+    sched.lock()
+    defer { sched.unlock() }
     if loop.player.engine != nil { loop.player.stop() }
     if loop.phase == .playing { loop.phase = .ready }
   }
 
   func loopClear() {
+    sched.lock()
+    defer { sched.unlock() }
     loop.generation &+= 1
     loopEndCapture()   // the mic stays open while the click runs, ready for the next take
     loopHalt()
@@ -2944,6 +3269,8 @@ extension PocktTimingEngine {
 
   /// Hands the session back to playback when the click has stopped (the loop is kept).
   func loopReleaseInput() {
+    sched.lock()
+    defer { sched.unlock() }
     loopReleaseCore()
     loop.wantsInput = false
     if inputCapture && !running && !tunerLive {
@@ -2961,6 +3288,8 @@ extension PocktTimingEngine {
   }
 
   func loopInfo() -> [String: Any] {
+    sched.lock()
+    defer { sched.unlock() }
     var levels: [Double] = []
     for layer in loop.layers {
       var p: Float = 0
@@ -2976,6 +3305,8 @@ extension PocktTimingEngine {
   }
 
   fileprivate func loopRescheduleAfterRecovery() {
+    sched.lock()
+    defer { sched.unlock() }
     if loop.capturing {
       loopRefreshMap()
       loopEnsureTimer()

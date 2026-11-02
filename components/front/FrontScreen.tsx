@@ -705,7 +705,7 @@ export function FrontScreen() {
           L.pendingPlay = true;
           setLoopBar(1);
           setLoopState('cued');
-          if (tunerOn) { setTunerOn(false); setTimeout(() => toggle(), 160); } else toggle();
+          toggle();
           return;
         }
         L.from = transport.measureIndex + 1;
@@ -781,12 +781,7 @@ export function FrontScreen() {
 
   const pressPlay = () => {
     if (!hydrated) return;
-    if (tunerOn) {
-      // the tuner hands the audio session back first; Play queues behind that release
-      setTunerOn(false);
-      setTimeout(() => toggle(), 160);
-      return;
-    }
+    // Play and the tuner run together; the tuner keeps listening
     toggle();
   };
   const step = (delta: number) => setBpm(Math.max(20, Math.min(400, bpm + delta)));
@@ -897,7 +892,7 @@ export function FrontScreen() {
     st.turn.value += strobeV.value * dt;
   });
   const pressTuner = () => {
-    if (!tunerOn && playing) toggle();
+    // the tuner never stops the click: both run together
     if (!tunerOn && face !== 'dial' && face !== 'pulse') setFace('dial');
     setTunerOn((v) => !v);
   };

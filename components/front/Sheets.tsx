@@ -62,7 +62,7 @@ export function TempoSheet({
   };
   const commitLabel = !entry ? 'Done' : valid ? `Set ${shown} BPM` : 'Enter 20 to 400';
   return (
-    <Sheet open={open} onClose={onClose} title="Tempo" footer={<Key label={commitLabel} big tone="amber" onPress={commit} />}>
+    <Sheet open={open} onClose={onClose} title={light && onLight ? 'Tempo & Pulse colours' : 'Tempo'} footer={<Key label={commitLabel} big tone="amber" onPress={commit} />}>
       <View style={s.tempoHead}>
         <Text style={[s.tempoValue, !valid && { color: NS.inkMute }]}>{entry || bpm}</Text>
         <Text style={s.tempoName}>{valid ? tempoName(shown).toUpperCase() : 'ENTER 20 TO 400'}</Text>
