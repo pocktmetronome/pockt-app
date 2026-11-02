@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "icon": "./assets/branding/pockt-2-app-icon-approved.png",
-      "supportsTablet": false,
+      "supportsTablet": true,
       "requireFullScreen": true,
       "bundleIdentifier": "com.moneytest.pockt",
       "buildNumber": "165",
