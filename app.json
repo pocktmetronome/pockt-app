@@ -2,7 +2,7 @@
   "expo": {
     "name": "POCKT",
     "slug": "POCKT",
-    "version": "13.0.0",
+    "version": "13.1.0",
     "orientation": "portrait",
     "icon": "./assets/branding/pockt-brass-app-icon.png",
     "scheme": "pockt",
