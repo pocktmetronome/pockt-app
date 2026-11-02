@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android", "web"],
+  "apple": {
+    "modules": ["PocktTimingModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.pockttiming.PocktTimingModule"]
+  }
+}

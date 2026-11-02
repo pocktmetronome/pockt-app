@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1536" viewBox="0 0 1024 1536">
+<defs>
+  <linearGradient id="wood" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#2a211b"/>
+    <stop offset="0.45" stop-color="#4c3525"/>
+    <stop offset="1" stop-color="#171414"/>
+  </linearGradient>
+  <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#f0d391"/>
+    <stop offset="0.45" stop-color="#9a7137"/>
+    <stop offset="1" stop-color="#4a351d"/>
+  </linearGradient>
+  <filter id="shadow"><feDropShadow dx="0" dy="12" stdDeviation="18" flood-opacity=".32"/></filter>
+</defs>
+<g filter="url(#shadow)">
+  <path d="M380 1450 L344 1205 L304 1000 L265 790
+           C245 688 255 570 290 470
+           C326 365 330 246 345 136
+           C350 96 383 70 423 70
+           L601 70
+           C641 70 674 96 679 136
+           C694 246 698 365 734 470
+           C769 570 779 688 759 790
+           L720 1000 L680 1205 L644 1450
+           Q512 1512 380 1450Z"
+        fill="url(#wood)" stroke="#b78d4f" stroke-width="10"/>
+  <path d="M420 1432 L385 1200 L350 994 L315 784
+           C297 689 307 590 337 498
+           C373 388 378 266 389 151
+           L635 151
+           C646 266 651 388 687 498
+           C717 590 727 689 709 784
+           L674 994 L639 1200 L604 1432"
+        fill="none" stroke="#d7b56e" stroke-width="5" opacity=".35"/>
+</g>
+
+<!-- nut -->
+<rect x="390" y="1378" width="244" height="24" rx="8" fill="#d2c8ad"/>
+
+<!-- POCKT mark -->
+<text x="512" y="830" text-anchor="middle" font-family="Arial, Helvetica, sans-serif"
+      font-size="72" letter-spacing="12" fill="#e2c47e" opacity=".88">POCKT</text>
+<text x="512" y="892" text-anchor="middle" font-family="Arial, Helvetica, sans-serif"
+      font-size="22" letter-spacing="6" fill="#d5bd85" opacity=".65">TUNER</text>
+
+<!-- left tuners -->
+<g fill="url(#metal)" stroke="#2a2116" stroke-width="7">
+  <circle cx="330" cy="350" r="35"/><rect x="235" y="325" width="82" height="50" rx="20"/>
+  <circle cx="312" cy="575" r="35"/><rect x="215" y="550" width="84" height="50" rx="20"/>
+  <circle cx="305" cy="800" r="35"/><rect x="208" y="775" width="84" height="50" rx="20"/>
+</g>
+<!-- right tuners -->
+<g fill="url(#metal)" stroke="#2a2116" stroke-width="7">
+  <circle cx="694" cy="350" r="35"/><rect x="707" y="325" width="82" height="50" rx="20"/>
+  <circle cx="712" cy="575" r="35"/><rect x="725" y="550" width="84" height="50" rx="20"/>
+  <circle cx="719" cy="800" r="35"/><rect x="732" y="775" width="84" height="50" rx="20"/>
+</g>
+
+<!-- string anchor guide points (invisible metadata-like circles, opacity .001) -->
+<g id="string-anchors" fill="#fff" opacity=".001">
+  <circle id="anchor-6-lowE" cx="330" cy="350" r="8"/>
+  <circle id="anchor-5-A" cx="312" cy="575" r="8"/>
+  <circle id="anchor-4-D" cx="305" cy="800" r="8"/>
+  <circle id="anchor-3-G" cx="719" cy="800" r="8"/>
+  <circle id="anchor-2-B" cx="712" cy="575" r="8"/>
+  <circle id="anchor-1-highE" cx="694" cy="350" r="8"/>
+</g>
+</svg>

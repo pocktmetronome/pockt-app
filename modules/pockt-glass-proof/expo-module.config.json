@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android", "web"],
+  "apple": {
+    "modules": ["PocktGlassProofModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.pocktglassproof.PocktGlassProofModule"]
+  }
+}

@@ -1,0 +1,3 @@
+POCKT Whiskey Bar Bartender Fix v6
+Use same locked crop 246,372 214x292.
+Includes existing passing plate/rest and a subtler anchored stroke.

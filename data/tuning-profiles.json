@@ -1,0 +1,95 @@
+{
+  "guitar": {
+    "standard": [
+      "E2",
+      "A2",
+      "D3",
+      "G3",
+      "B3",
+      "E4"
+    ],
+    "drop_d": [
+      "D2",
+      "A2",
+      "D3",
+      "G3",
+      "B3",
+      "E4"
+    ],
+    "half_step_down": [
+      "Eb2",
+      "Ab2",
+      "Db3",
+      "Gb3",
+      "Bb3",
+      "Eb4"
+    ],
+    "whole_step_down": [
+      "D2",
+      "G2",
+      "C3",
+      "F3",
+      "A3",
+      "D4"
+    ],
+    "dadgad": [
+      "D2",
+      "A2",
+      "D3",
+      "G3",
+      "A3",
+      "D4"
+    ],
+    "open_g": [
+      "D2",
+      "G2",
+      "D3",
+      "G3",
+      "B3",
+      "D4"
+    ],
+    "open_d": [
+      "D2",
+      "A2",
+      "D3",
+      "F#3",
+      "A3",
+      "D4"
+    ]
+  },
+  "bass": {
+    "4_string_standard": [
+      "E1",
+      "A1",
+      "D2",
+      "G2"
+    ],
+    "5_string_standard": [
+      "B0",
+      "E1",
+      "A1",
+      "D2",
+      "G2"
+    ],
+    "drop_d_4_string": [
+      "D1",
+      "A1",
+      "D2",
+      "G2"
+    ]
+  },
+  "ukulele": {
+    "standard_high_g": [
+      "G4",
+      "C4",
+      "E4",
+      "A4"
+    ],
+    "standard_low_g": [
+      "G3",
+      "C4",
+      "E4",
+      "A4"
+    ]
+  }
+}

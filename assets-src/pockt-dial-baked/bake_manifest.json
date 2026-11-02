@@ -1,0 +1,70 @@
+{
+  "source_commit": "6254e7d Round 4 visual master",
+  "normal_space": "OBJECT",
+  "normal_encoding": "rgb = n * 0.5 + 0.5, +X +Y +Z",
+  "uv": {
+    "space": "top-down orthographic",
+    "object_xy_range": [
+      -1.08,
+      1.08
+    ],
+    "v_plus": "+Y (12 o'clock)",
+    "shader_view_fill": 0.48
+  },
+  "aniso": {
+    "rg": "object-space radial tangent xy, 0.5-centered",
+    "a": "anisotropic strength (Principled)",
+    "hub": "radial-tangent, matches MAT_HUB Tangent RADIAL Z"
+  },
+  "env": {
+    "format": "RGBM PNG",
+    "rgbm_max": 16.0,
+    "size": [
+      256,
+      128
+    ],
+    "projection": "equirect, camera at (0,0,0.12), Z-up, +Y = 12 o'clock"
+  },
+  "resolutions": {
+    "knob_albedo": 2048,
+    "knob_normal": 2048,
+    "knob_ao": 2048,
+    "knob_rough": 2048,
+    "knob_aniso": 1024,
+    "static_beauty": 2048,
+    "static_normal": 1024,
+    "env_rgbm": [
+      256,
+      128
+    ]
+  },
+  "justification": {
+    "knob_2048": "hub shader grain n=560 over ~1000 px hub diameter \u2248 5.6 px/cycle; 1024 is Nyquist-marginal",
+    "aniso_1024": "radial T is a smooth field; strength fades only near r=0",
+    "static_beauty_2048": "housing knurl 520 teeth occupy ~77 px ring width; 11 px/tooth at 2048",
+    "static_normal_1024": "live knurl sparkle under tilt; 5.5 px/tooth is enough for a highlight tap",
+    "env_256x128": "studio is 7 area lights; 256 columns resolve the key/rim lobes"
+  },
+  "samples": {
+    "bake": 0,
+    "beauty": 0
+  },
+  "seconds": {
+    "pack_only": 0
+  },
+  "ios_copies": {
+    "knob_albedo.png": 1969245,
+    "knob_normal.png": 2391725,
+    "knob_ao.png": 2500678,
+    "knob_rough.png": 1757149,
+    "knob_aniso.png": 539364,
+    "static_beauty.png": 3119717,
+    "static_normal.png": 831807,
+    "env_rgbm.png": 66105
+  },
+  "podspec_globs": [
+    "**/*.metal",
+    "**/*.png"
+  ],
+  "resource_bundle": "PocktDial.bundle"
+}

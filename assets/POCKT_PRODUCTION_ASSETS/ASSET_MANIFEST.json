@@ -1,0 +1,24 @@
+{
+  "purpose": "Independent production-reference artwork for POCKT. No storyboard files should be imported into the app.",
+  "categories": {
+    "classic": [
+      "classic_titanium_reference.png",
+      "titanium_receiver_dial_reference.png"
+    ],
+    "immersive": {
+      "heavy": [
+        "heavy_opening.png",
+        "heavy_landing.png"
+      ],
+      "roots": [
+        "roots_opening.png",
+        "roots_landing.png"
+      ],
+      "sundown": [
+        "sundown_opening.png",
+        "sundown_landing.png"
+      ]
+    }
+  },
+  "implementation_note": "Use each image independently. Do not crop the storyboard at runtime. The Cursor prompt defines navigation, timing, haptics, BPM input fixes, performance, and asset mapping."
+}

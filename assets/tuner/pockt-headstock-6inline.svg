@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1536" viewBox="0 0 1024 1536">
+<defs>
+  <linearGradient id="wood" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#1c2022"/>
+    <stop offset=".52" stop-color="#33383a"/>
+    <stop offset="1" stop-color="#121416"/>
+  </linearGradient>
+  <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#f0d391"/>
+    <stop offset=".48" stop-color="#9f773c"/>
+    <stop offset="1" stop-color="#4a341b"/>
+  </linearGradient>
+  <filter id="shadow"><feDropShadow dx="0" dy="12" stdDeviation="18" flood-opacity=".34"/></filter>
+</defs>
+<g filter="url(#shadow)">
+  <path d="M380 1450 L352 1220 L330 1040 L306 870
+           C286 736 290 600 323 470
+           C356 338 378 216 420 120
+           Q448 58 514 72
+           C600 91 679 134 737 198
+           C781 247 789 309 757 354
+           C728 396 683 423 638 446
+           C602 465 582 496 585 535
+           L636 1172 L648 1430
+           Q520 1490 380 1450Z"
+        fill="url(#wood)" stroke="#b78d4f" stroke-width="10"/>
+</g>
+<rect x="387" y="1378" width="250" height="24" rx="8" fill="#d2c8ad"/>
+
+<text x="500" y="880" text-anchor="middle" font-family="Arial, Helvetica, sans-serif"
+      font-size="72" letter-spacing="12" fill="#e2c47e" opacity=".9">POCKT</text>
+<text x="500" y="942" text-anchor="middle" font-family="Arial, Helvetica, sans-serif"
+      font-size="22" letter-spacing="6" fill="#d5bd85" opacity=".65">TUNER</text>
+
+<!-- six tuners on one edge -->
+<g fill="url(#metal)" stroke="#221b11" stroke-width="7">
+  <circle cx="640" cy="300" r="34"/><rect x="675" y="275" width="90" height="50" rx="20"/>
+  <circle cx="625" cy="475" r="34"/><rect x="660" y="450" width="90" height="50" rx="20"/>
+  <circle cx="615" cy="650" r="34"/><rect x="650" y="625" width="90" height="50" rx="20"/>
+  <circle cx="607" cy="825" r="34"/><rect x="642" y="800" width="90" height="50" rx="20"/>
+  <circle cx="600" cy="1000" r="34"/><rect x="635" y="975" width="90" height="50" rx="20"/>
+  <circle cx="592" cy="1175" r="34"/><rect x="627" y="1150" width="90" height="50" rx="20"/>
+</g>
+
+<g id="string-anchors" fill="#fff" opacity=".001">
+  <circle id="anchor-1-highE" cx="640" cy="300" r="8"/>
+  <circle id="anchor-2-B" cx="625" cy="475" r="8"/>
+  <circle id="anchor-3-G" cx="615" cy="650" r="8"/>
+  <circle id="anchor-4-D" cx="607" cy="825" r="8"/>
+  <circle id="anchor-5-A" cx="600" cy="1000" r="8"/>
+  <circle id="anchor-6-lowE" cx="592" cy="1175" r="8"/>
+</g>
+</svg>

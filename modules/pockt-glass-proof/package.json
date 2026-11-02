@@ -1,0 +1,15 @@
+{
+  "name": "pockt-glass-proof",
+  "version": "0.1.0",
+  "description": "Isolated native iOS Metal proof: instrument-beneath-glass dial. Not Beatline.",
+  "main": "index.ts",
+  "keywords": ["react-native", "expo", "pockt"],
+  "license": "UNLICENSED",
+  "author": "POCKT",
+  "homepage": "https://expo.dev",
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  }
+}

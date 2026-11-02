@@ -1,0 +1,49 @@
+{
+  "north_star_artboard": {
+    "width": 1024,
+    "height": 1536
+  },
+  "regions_normalized": {
+    "header": {
+      "x": 0.15,
+      "y": 0.06,
+      "w": 0.7,
+      "h": 0.1
+    },
+    "tempo_group": {
+      "x": 0.18,
+      "y": 0.14,
+      "w": 0.64,
+      "h": 0.1
+    },
+    "dial": {
+      "cx": 0.5,
+      "cy": 0.45,
+      "diameter": 0.68
+    },
+    "beat_strip": {
+      "x": 0.16,
+      "y": 0.67,
+      "w": 0.68,
+      "h": 0.105
+    },
+    "transport": {
+      "x": 0.16,
+      "y": 0.79,
+      "w": 0.68,
+      "h": 0.085
+    },
+    "bottom_nav": {
+      "x": 0.15,
+      "y": 0.88,
+      "w": 0.7,
+      "h": 0.085
+    }
+  },
+  "notes": [
+    "Use normalized geometry as a starting layout contract, then optical-tune on real iPhone screenshots.",
+    "The approved Dial V3 must remain circular and visually dominant.",
+    "The beat strip may tuck slightly under the dial bezel, but must not lose interactive hit area.",
+    "Bottom nav remains visually separate from the chassis with a subtle recessed tray."
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android", "web"],
+  "apple": {
+    "modules": ["PocktDialModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.pocktdial.PocktDialModule"]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "layoutCycles": 1344,
+  "playTransitions": 500,
+  "taps": 500,
+  "tapBpm": 60,
+  "meterCycles": 500,
+  "pPresses": 500,
+  "navChanges": 500,
+  "headerCycles": 500,
+  "steps": 500,
+  "finalBpm": 120,
+  "sweepBpm": 20,
+  "phraseTrips": 500,
+  "failures": 0
+}

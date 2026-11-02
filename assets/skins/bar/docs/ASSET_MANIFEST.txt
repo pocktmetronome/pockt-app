@@ -1,0 +1,45 @@
+POCKT WHISKEY BAR — LOCKED ACTIVE ASSET MANIFEST
+
+CENTRAL BPM OBJECT (not a beat):
+- objects/tempo-block-v1.png
+  Walnut-and-brass physical BPM housing. Blank brass face. BPM digits rendered live in app.
+  Recommended master center: x=0.500, y=0.742
+  Approx master-space box: 210 x 120
+
+BEAT OBJECTS — INITIAL 4-BEAT MODE:
+Beat 1 — objects/tap-puck-v1.png
+  Premium dark leather/walnut tapping puck with brass rim and visible thickness.
+  Replaces the old flat coaster in active Whiskey Bar use.
+  Center: x=0.187, y=0.831
+  Sound family: Tap / Wood Tap / Metal Tap / Thud
+
+Beat 2 — objects/rocks-glass-v1.png
+  Heavy rocks glass, amber whiskey, one large square ice cube.
+  Center: x=0.390, y=0.831
+  Sound family: Glass / Clink / Ice
+
+Beat 3 — objects/jigger-v1.png
+  Double jigger.
+  Center: x=0.595, y=0.831
+  Sound family: Jigger / Metal Tap
+
+Beat 4 — objects/shaker-v1.png
+  Upright cocktail shaker.
+  Center: x=0.798, y=0.831
+  Sound family: Shaker / Shake / bar-shaker-accent
+
+VISUAL STATE MODEL:
+0 = object absent
+1 = small
+2 = medium
+3 = full / strongest
+Transitions should grow/pop/stretch from the physical contact point, not swap bitmaps.
+Playback motion is native-clock driven only.
+
+LAYERS:
+- layers/brass-lip-foreground-v1.png — 940x1672 registered foreground occlusion
+- layers/warm-light-overlay-v1.png — 940x1672 registered warm local light overlay
+- layers/brass-reflection-overlay-v1.png — 940x1672 registered brass highlight overlay
+
+DO NOT USE GENERIC BEAT BARS IN WHISKEY BAR.
+DO NOT BAKE BPM DIGITS INTO tempo-block-v1.png.

@@ -1,0 +1,15 @@
+{
+  "name": "pockt-dial",
+  "version": "0.1.0",
+  "description": "Native iOS Metal BPM dial for the Dial Pocket. Not Glass Proof.",
+  "main": "index.ts",
+  "keywords": ["react-native", "expo", "pockt"],
+  "license": "UNLICENSED",
+  "author": "POCKT",
+  "homepage": "https://expo.dev",
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  }
+}

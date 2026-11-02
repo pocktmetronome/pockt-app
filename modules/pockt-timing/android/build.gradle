@@ -1,0 +1,15 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.pockttiming'
+version = '8.6.0'
+
+android {
+  namespace "expo.modules.pockttiming"
+  defaultConfig {
+    versionCode 86
+    versionName "8.6.0"
+  }
+}

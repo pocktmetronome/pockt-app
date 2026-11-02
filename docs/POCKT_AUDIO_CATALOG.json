@@ -1,0 +1,30 @@
+{
+  "generated": "2026-08-26",
+  "files": 6704,
+  "candidates": 3449,
+  "rejected": 3255,
+  "byLibrary": {
+    "01_PERCUSSION_ORIGINAL": 378,
+    "02_ANALOG_ORIGINAL": 702,
+    "03_VOCAL_ORIGINAL": 1034,
+    "05_GAME_DIALOGUE_ORIGINAL": 2720,
+    "06_GAME_VOICES_ORIGINAL": 1837,
+    "07_REVERB_VOCALS_ORIGINAL": 33
+  },
+  "candidateByCategory": {
+    "metal": 3,
+    "percussion": 74,
+    "drums": 15,
+    "wood": 4,
+    "voice": 545,
+    "synth": 103,
+    "uncategorized": 2705
+  },
+  "isolatedSpokenCounting": [],
+  "isolatedSpokenCountingExists": false,
+  "notes": {
+    "selectedFolder": "04_POCKT_SELECTED is empty. Curation lives in assets/audio/library derived copies.",
+    "gameLibraries": "05/06 contain character dialogue and are not metronome voices.",
+    "chamberVocals": "07 is long atmospheric material, not beat one-shots."
+  }
+}

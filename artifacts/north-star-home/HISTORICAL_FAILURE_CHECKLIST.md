@@ -1,0 +1,28 @@
+# Historical failure checklist
+
+- Build 151 visual disaster: FIXED. The home screen uses the North Star hardware masters around the locked photographic dial.
+- Build 152 visual disaster: FIXED. Header, tempo controls, beat strip, transport, and nav were replaced from the device rejection.
+- Fake procedural metal: NOT PRESENT. Controls are the supplied photographic shells. The dial plate was not redrawn.
+- Flattened screenshot animation: NOT PRESENT. The North Star PNG is not a runtime screen. BPM, ticks, beats, and play state stay live.
+- Bad composite extraction: FIXED. Skins are the individual raster masters. The QC sheet is not mounted.
+- Clipped +/- half moons: FIXED. Plus and minus are complete circular knob shells with centered symbols.
+- Field-goal tuner: FIXED. The header uses the tuning-fork icon inside the round shell.
+- Weak Sound control: FIXED. Sound uses the matching round shell and speaker icon.
+- Tiny hit targets: FIXED. Header hits are 48 points and inset from the screen edge.
+- Giant BPM layout: FIXED. The tempo well is the height of the knobs. The dial remains the hero.
+- Beat shutters: FIXED. One cover plate slides over the beat cavity. There are no slats.
+- Blank beat state: FIXED. Off, soft, normal, and strong each keep a supplied button. The current beat adds a lamp on top.
+- Tiny Phrase/Loop: FIXED. Loop replaces the dial viewport.
+- Trapped Loop/Phrase: FIXED. BEATS is on the Loop face and returns to the instrument.
+- Malformed Tap: FIXED. Tap uses the secondary transport shell.
+- Malformed Play: FIXED. Play uses the primary transport shell. Stop is a square on the same key after native start.
+- Giant Meter: FIXED. Meter is one key in the transport row.
+- Garbage P button: FIXED. The options key uses the supplied P logo artwork.
+- Poor nav spacing: FIXED. Six equal destinations sit in the recessed nav panel.
+- Rocket Pendulum icon: FIXED. The icon is a pivot, a rod, and a round bob.
+- Crushed Dial: NOT PRESENT. The dial stays circular and about 86 percent of a 390-point width.
+- Inconsistent materials: FIXED. Header, knobs, beats, transport, and nav come from the same asset kit.
+- Generic UI cards: NOT PRESENT. The modules are hardware panels, not settings cards.
+- Asset rectangles: FIXED. Skins are clipped to their controls. Intrinsic PNG size does not escape the button.
+- Startup sound: NOT PRESENT. Launch sound stays off and the branded intro is not mounted.
+- Unnecessary startup animation: NOT PRESENT. The app enters the instrument with the normal launch field.

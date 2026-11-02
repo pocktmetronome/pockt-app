@@ -1,0 +1,27 @@
+{
+  "rampTrainer": {
+    "startBpm": 60,
+    "targetBpm": 120,
+    "stepBpm": 5,
+    "changeEveryBars": 4,
+    "stopAtTarget": true
+  },
+  "gapTrainer": {
+    "audibleBars": 4,
+    "silentBars": 2,
+    "randomMode": false,
+    "randomAudibleMin": 2,
+    "randomAudibleMax": 4,
+    "randomSilentMin": 1,
+    "randomSilentMax": 2
+  },
+  "countIn": {
+    "enabled": true,
+    "bars": 1
+  },
+  "limit": {
+    "mode": "none",
+    "bars": 0,
+    "seconds": 0
+  }
+}

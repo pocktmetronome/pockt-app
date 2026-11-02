@@ -1,0 +1,101 @@
+{
+  "passed": true,
+  "failures": [],
+  "failureCount": 0,
+  "sampleRate": 48000,
+  "architecture": "v13-sample-schedule",
+  "tempo": [
+    {
+      "bpm": 20,
+      "intervalMs": 3000,
+      "maxErrorMs": 0,
+      "driftMs": 0,
+      "events": 2400,
+      "passed": true
+    },
+    {
+      "bpm": 30,
+      "intervalMs": 2000,
+      "maxErrorMs": 0,
+      "driftMs": 0,
+      "events": 2400,
+      "passed": true
+    },
+    {
+      "bpm": 40,
+      "intervalMs": 1500,
+      "maxErrorMs": 0,
+      "driftMs": 0,
+      "events": 2400,
+      "passed": true
+    },
+    {
+      "bpm": 60,
+      "intervalMs": 1000,
+      "maxErrorMs": 0,
+      "driftMs": 0,
+      "events": 2400,
+      "passed": true
+    },
+    {
+      "bpm": 96,
+      "intervalMs": 625,
+      "maxErrorMs": 0,
+      "driftMs": 0,
+      "events": 2400,
+      "passed": true
+    },
+    {
+      "bpm": 120,
+      "intervalMs": 500,
+      "maxErrorMs": 0,
+      "driftMs": 0,
+      "events": 2400,
+      "passed": true
+    },
+    {
+      "bpm": 160,
+      "intervalMs": 375,
+      "maxErrorMs": 0,
+      "driftMs": 0,
+      "events": 2400,
+      "passed": true
+    },
+    {
+      "bpm": 200,
+      "intervalMs": 300,
+      "maxErrorMs": 0,
+      "driftMs": 0,
+      "events": 2400,
+      "passed": true
+    },
+    {
+      "bpm": 260,
+      "intervalMs": 230.7692,
+      "maxErrorMs": 0.019231,
+      "driftMs": -0.009615,
+      "events": 2400,
+      "passed": true
+    },
+    {
+      "bpm": 320,
+      "intervalMs": 187.5,
+      "maxErrorMs": 0,
+      "driftMs": 0,
+      "events": 2400,
+      "passed": true
+    },
+    {
+      "bpm": 400,
+      "intervalMs": 150,
+      "maxErrorMs": 0,
+      "driftMs": 0,
+      "events": 2400,
+      "passed": true
+    }
+  ],
+  "mutations": 1000,
+  "playStop": 1000,
+  "phraseLoops": 1000,
+  "note": "Scheduled sample positions only. Rendered audio, host time, and device drift were not measured."
+}

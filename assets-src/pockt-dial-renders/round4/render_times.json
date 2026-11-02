@@ -1,0 +1,10 @@
+{
+  "samples": 256,
+  "seconds": {
+    "full_dial.png": 132.10314610000933,
+    "detail_chamfer_hub.png": 225.20561569998972,
+    "detail_knurl.png": 126.93919580000511,
+    "detail_plate_gap.png": 187.6989476000017,
+    "light_tilt.png": 123.44286549999379
+  }
+}

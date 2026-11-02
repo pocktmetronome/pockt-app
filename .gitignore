@@ -1,0 +1,66 @@
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+app-example
+
+# generated native folders
+/ios
+/android
+
+# Portable Blender tree used for headless Classic Dial stills — never commit
+.tmp-blender/
+
+# Purchased source libraries — archival only, never bundled
+POCKT_AUDIO_SOURCE/
+.qa-v93/
+POCKT_CATEGORY_KILLER_ASSETS_v1/
+POCKT_END_ALL_REFERENCE_PACK_2026-08-23/
+POCKT_FINAL_FORENSIC_PACK_2026-08-23/
+POCKT_FINAL_MASTER_v13/
+scripts/bar-calibration-frames/
+
+# Untracked throwaway Skia hardware-depth proof — keep on disk, never typecheck or commit
+app/hardware-depth-proof.tsx
+components/hardware-depth-proof/
+
+.expo-token
+
+# reference screen recordings: too large for GitHub (kept on disk only)
+assets-src/pockt-3-docs/reference/*.mp4
+.tmp-*/
+.tmp-*

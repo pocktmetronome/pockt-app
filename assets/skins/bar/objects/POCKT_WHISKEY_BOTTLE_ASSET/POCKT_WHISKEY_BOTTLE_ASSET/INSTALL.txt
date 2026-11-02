@@ -1,0 +1,2 @@
+Copy whiskey-bottle-v1.png to:
+C:\Apps\POCKT\assets\skins\bar\objects\whiskey-bottle-v1.png

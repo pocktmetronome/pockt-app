@@ -1,0 +1,51 @@
+{
+  "POCKET": {
+    "file": "pocket.wav",
+    "downbeat": "pocket_downbeat.wav",
+    "purpose": "POCKT signature balanced click"
+  },
+  "SUBKICK": {
+    "file": "subkick.wav",
+    "downbeat": "subkick_downbeat.wav",
+    "purpose": "deep low-frequency physical hit"
+  },
+  "STUDIO": {
+    "file": "studio.wav",
+    "downbeat": "studio_downbeat.wav",
+    "purpose": "silky warm studio transient"
+  },
+  "ALTERED": {
+    "file": "altered.wav",
+    "downbeat": "altered_downbeat.wav",
+    "purpose": "soft rounded low-fatigue click"
+  },
+  "AFTER DARK": {
+    "file": "after_dark.wav",
+    "downbeat": "after_dark_downbeat.wav",
+    "purpose": "deep warm late-night pulse"
+  },
+  "HEART": {
+    "file": "heart.wav",
+    "downbeat": "heart_downbeat.wav",
+    "purpose": "organic heart thump"
+  },
+  "CLASSIC": {
+    "file": "classic.wav",
+    "downbeat": "classic_downbeat.wav",
+    "purpose": "native clean room click"
+  },
+  "HEAVY": {
+    "file": "heavy.wav",
+    "downbeat": "heavy_downbeat.wav",
+    "purpose": "punchy industrial click"
+  },
+  "EXTRAS": [
+    "WOOD",
+    "BRASS",
+    "DIGITAL",
+    "TIGHT",
+    "CLAP",
+    "SHARP",
+    "SOFT"
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "ibl": "C:\\Apps\\POCKT\\assets-src\\pockt-dial-renders\\round4\\parity_ibl.png",
+  "swap_lilac": "C:\\Apps\\POCKT\\assets-src\\pockt-dial-renders\\round4\\parity_swap_lilac.png",
+  "side_by_side": "C:\\Apps\\POCKT\\assets-src\\pockt-dial-renders\\round4\\parity_side_by_side.png",
+  "resolution": 512,
+  "binding_table": {
+    "0": "faceMap",
+    "1": "knob_albedo",
+    "2": "knob_normal",
+    "3": "knob_ao",
+    "4": "knob_rough",
+    "5": "knob_aniso",
+    "6": "static_beauty",
+    "7": "static_normal",
+    "8": "env_rgbm"
+  },
+  "env_peak": 2.0,
+  "region_means": {
+    "plate": [
+      0.0003312970880175371,
+      0.0003313921517443714,
+      0.00033158227919804004
+    ],
+    "knurl": [
+      0.1971161858344754,
+      0.16317257377120392,
+      0.12825042864264585
+    ],
+    "hub": [
+      0.11281112170797347,
+      0.11919099740561157,
+      0.13088339202377303
+    ]
+  },
+  "swap_region_means": {
+    "plate": [
+      0.00031846348489490657,
+      0.00031846348489490657,
+      0.00031846348489490657
+    ],
+    "knurl_ring": [
+      0.686093176196307,
+      0.6858434044948909,
+      0.8999370693533414
+    ]
+  },
+  "layout_dark_plate_bronze_knurl_dark_hub": true,
+  "swap_reproduces_lilac": true,
+  "mean_abs_err_vs_ortho_cycles": 0.028597663060820885,
+  "mean_abs_err_vs_round4_perspective": 0.06124997670301996,
+  "notes": [
+    "Binding 6=static_beauty, 7=static_normal. Swap 6\u21947 is the lilac regression.",
+    "Correct composite: beauty-only static base, spec masked to housing ring, steel F0 hub.",
+    "Left: ortho Cycles. Middle: CPU IBL. Right: Round 4 full_dial.png."
+  ]
+}

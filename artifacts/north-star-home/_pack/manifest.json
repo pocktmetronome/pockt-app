@@ -1,0 +1,252 @@
+{
+  "version": "1.0",
+  "north_star_locked": true,
+  "asset_count": 49,
+  "entries": [
+    {
+      "path": "FILE_LIST.txt",
+      "sha256": "1dfb28a67359badf99c980c9bd7bcb43c1efcad29fda092b08731c85ed95652b",
+      "bytes": 1327
+    },
+    {
+      "path": "README.md",
+      "sha256": "96996a5e98b9930003720ab35ce4219820b0f6669219725b1f6fe9c0acf235c2",
+      "bytes": 2469
+    },
+    {
+      "path": "dial/dial-base-blank-approved-v3.png",
+      "sha256": "f7fe14635cb4264eacfe5990e9a95a7e4273cc8bb4728baeb4000d4034218083",
+      "bytes": 1113902
+    },
+    {
+      "path": "icons/loop.svg",
+      "sha256": "d154805c67d053e47b8aca727e77deb6c6d66d6c17c747a3ccf260f49b66f8a4",
+      "bytes": 319
+    },
+    {
+      "path": "icons/minus.svg",
+      "sha256": "3f0de8dfdce110b42d4bd5b8aa5e616c382e1daef8bdd58785b718296b622821",
+      "bytes": 162
+    },
+    {
+      "path": "icons/nav_beatline.svg",
+      "sha256": "050a1ac32d45ff33db87937d4ea5bfaede255a757e324a3d0e3e6a851cddb2d5",
+      "bytes": 200
+    },
+    {
+      "path": "icons/nav_dial.svg",
+      "sha256": "0a2dcb15fd05d77427ea6fbb0fa2d4ce157f7eb4b2a7eb09719576e535bc3e1d",
+      "bytes": 203
+    },
+    {
+      "path": "icons/nav_pendulum.svg",
+      "sha256": "a917577ec5e6004da67f999c9f4fc816541b3c1e78da0efcf7ca44591c09f87f",
+      "bytes": 265
+    },
+    {
+      "path": "icons/nav_pro.svg",
+      "sha256": "1ab153a867cab14538cc0c18955416c990690a3b77a18ea00a60153935ef1928",
+      "bytes": 184
+    },
+    {
+      "path": "icons/nav_pulse.svg",
+      "sha256": "e6fd1fda4cb2ef5d082da022fd1794623dea8b051de7c88f17d07f7de554ae8e",
+      "bytes": 200
+    },
+    {
+      "path": "icons/nav_rhythm.svg",
+      "sha256": "78e5b7e5b98c9f348fd908f235ae6faf1b1682e3461f70e91a53edfdb6590a4e",
+      "bytes": 222
+    },
+    {
+      "path": "icons/note_quarter.svg",
+      "sha256": "9adb7f8062f393263a2e4484919617c1185fd133f55e352d50d59fc0bf6089e3",
+      "bytes": 214
+    },
+    {
+      "path": "icons/play.svg",
+      "sha256": "b6fa837c2af0e4562acb6d9ddf1ad9c45cf8489205b2b44882254140b875c00d",
+      "bytes": 175
+    },
+    {
+      "path": "icons/plus.svg",
+      "sha256": "3313451f3e16717a25b4fc4a6bc55e69697bbc856139a90c3f4a1e42f9b2c713",
+      "bytes": 170
+    },
+    {
+      "path": "icons/speaker.svg",
+      "sha256": "491b0fa9129e1efb7677f6a18364749f241760a0b86978992edfb169405b6bdc",
+      "bytes": 284
+    },
+    {
+      "path": "icons/stop.svg",
+      "sha256": "2fa5546f818a4d1b8ac1b5c3b312f2bef8dd6312214e1e3d4a0e1cb6195f0bbf",
+      "bytes": 135
+    },
+    {
+      "path": "icons/tuner_fork.svg",
+      "sha256": "b9a820219eeb363d34ecf0490db4ca5f5b98737414604f09f0654d5a1195be9d",
+      "bytes": 248
+    },
+    {
+      "path": "qc/QC_RASTER_ASSETS.png",
+      "sha256": "e78f2264b495eedd1dbbcf752d55403065e20038ac6f74499cc1485d3719ee64",
+      "bytes": 756376
+    },
+    {
+      "path": "raster/beat_cover_plate.png",
+      "sha256": "0c1b40089889655c4ef8b44efd4d6016df1567e892723a7b521b40385aaf34a0",
+      "bytes": 421625
+    },
+    {
+      "path": "raster/beat_normal.png",
+      "sha256": "025738ae7ddbe15a6846445bc149ae5ec2014215a2a23ee955167f07eb00c94e",
+      "bytes": 294441
+    },
+    {
+      "path": "raster/beat_off.png",
+      "sha256": "df58612c40ac6233b3e5f3765cce6df078c6b8bfc80a439c5cda6f86d6fa98fa",
+      "bytes": 303832
+    },
+    {
+      "path": "raster/beat_soft.png",
+      "sha256": "2963ca1bdffc5a49281032b8c789d9343b060796cfd438ea7259843904a30d18",
+      "bytes": 313567
+    },
+    {
+      "path": "raster/beat_strong.png",
+      "sha256": "5a0b16b716b41adcb09d7eb227c7a7b413a72b7e171a810287b1a8c1bc343381",
+      "bytes": 303613
+    },
+    {
+      "path": "raster/beat_visibility_off.png",
+      "sha256": "869a6474d250ca54538e3aadc06418a2093cc1a3035beb0473ba3c5670fcf67e",
+      "bytes": 193244
+    },
+    {
+      "path": "raster/beat_visibility_on.png",
+      "sha256": "bbbf555928d7605a0f02a3717dd1d00477e563cca7191bd8088de80439c96fbd",
+      "bytes": 185083
+    },
+    {
+      "path": "raster/bpm_display_blank.png",
+      "sha256": "92f891782d95f57c14d4afa0a35b65eaa74f0f2223b119a861e359841bd3f03d",
+      "bytes": 389005
+    },
+    {
+      "path": "raster/chassis_blackened_metal_tile.png",
+      "sha256": "e52f81b273cd49cfc4ed9f4c887350bb590a84b393cc91f598e4e24cdbb4142f",
+      "bytes": 158215
+    },
+    {
+      "path": "raster/header_round_shell_pressed.png",
+      "sha256": "571eda209f197c534195fdbc388df46674135dd33f56a09c36a4fa27e18a7cb9",
+      "bytes": 517984
+    },
+    {
+      "path": "raster/header_round_shell_rest.png",
+      "sha256": "196b2fded150e3cf99d1a3f03c8327c835e1a7e81ce6432d5c60d997c019002d",
+      "bytes": 503005
+    },
+    {
+      "path": "raster/loop_button_pressed.png",
+      "sha256": "09c163820f636caedc5901d9e4feedbca56cad968c5c5d89e4fefc15ca0c9d78",
+      "bytes": 406297
+    },
+    {
+      "path": "raster/loop_button_rest.png",
+      "sha256": "04831372b66e39fe0f64aae6dcd3bbd45079181ca25a10b75540bd828ac8ec1c",
+      "bytes": 410695
+    },
+    {
+      "path": "raster/meter_key_shell_pressed.png",
+      "sha256": "f9c54f5e22665ea2b6419f9432b2761e5d5547b09b1e580f603494ef69300964",
+      "bytes": 617905
+    },
+    {
+      "path": "raster/meter_key_shell_rest.png",
+      "sha256": "516e908ca2d1ddaa95f4ce6ca98bc2d602616cebb258b20ebce496e51de6577e",
+      "bytes": 605629
+    },
+    {
+      "path": "raster/panel_beat_strip.png",
+      "sha256": "a90c5b06dfc2820c06990f43b843cd05c89cfcc80eda2ff453d5a1098dbff857",
+      "bytes": 463070
+    },
+    {
+      "path": "raster/panel_nav.png",
+      "sha256": "96ebb16cd76a43cc1865bc16e8e088d1eb6b01150c29fccfd0c9916026201308",
+      "bytes": 421478
+    },
+    {
+      "path": "raster/panel_top.png",
+      "sha256": "3a906e7597bd1165481847d6657e6d68d43242614b70395e0c3c55096f63afe0",
+      "bytes": 477041
+    },
+    {
+      "path": "raster/panel_transport.png",
+      "sha256": "97dde7a5a7cf0f1b0a15d4dff0f32d5a0e1327a2cfe1982c3b61c6f078689edb",
+      "bytes": 449233
+    },
+    {
+      "path": "raster/pockt_p_logo_8x.png",
+      "sha256": "91e4e09bf22894e95a341139e89105175ba713c1c107575eab1408846dda487d",
+      "bytes": 233888
+    },
+    {
+      "path": "raster/press_lighting_overlay.png",
+      "sha256": "9097d8614b296a719b39d61233412400ff35eb70e4b069cce9f46855bcb8cf2f",
+      "bytes": 6696
+    },
+    {
+      "path": "raster/tempo_knob_shell_pressed.png",
+      "sha256": "6edb40f6b320f19a6b400c677097f2b9d3ee937695bf76168561b68bdc60feca",
+      "bytes": 628583
+    },
+    {
+      "path": "raster/tempo_knob_shell_rest.png",
+      "sha256": "ac541c7f4f70564ce522e2fd4e0655df0a936484e094224dd257d184ae53a445",
+      "bytes": 660389
+    },
+    {
+      "path": "raster/transport_key_primary_pressed.png",
+      "sha256": "a9751cbf496bcdc06f05d3fd9bf7f3c8c8215dd5120ac434a85a583cb3e2977e",
+      "bytes": 524340
+    },
+    {
+      "path": "raster/transport_key_primary_rest.png",
+      "sha256": "5caac9e5c08ff085a7a2799b587f2f99ed151fbb227db8115f3cbd153f8cb692",
+      "bytes": 558104
+    },
+    {
+      "path": "raster/transport_key_secondary_pressed.png",
+      "sha256": "be14cb304240a3c0de8b3736a5c238778a22db63e2bfa6b839e9780d458a8341",
+      "bytes": 468409
+    },
+    {
+      "path": "raster/transport_key_secondary_rest.png",
+      "sha256": "de112b114fc0c5d89208aeda85510365bb78be6c8a006ed10cad23b4497dd1f5",
+      "bytes": 451858
+    },
+    {
+      "path": "references/POCKT_APPROVED_P_LOGO.png",
+      "sha256": "bb6133e9c9ca0d03853ea6928e62236214f1c78ffdb653a66ce93782cec68ad3",
+      "bytes": 7848
+    },
+    {
+      "path": "references/POCKT_LOOP_BUTTON_REFERENCE.png",
+      "sha256": "7181ffc881acfbcabb0c92a30b7e0cfe80adba061d294ea38d94169e6ba559e1",
+      "bytes": 31303
+    },
+    {
+      "path": "references/POCKT_NORTH_STAR_DIAL.png",
+      "sha256": "07f64742ba00f9ed3c56e1b2923aea450113641f222aacb18ef1f896b38d119a",
+      "bytes": 2071475
+    },
+    {
+      "path": "spec/north_star_geometry.json",
+      "sha256": "bb9159c27118ebd6c82b0003e5e112f81116d7467df8b2a20231e40b31f27ea3",
+      "bytes": 1035
+    }
+  ]
+}

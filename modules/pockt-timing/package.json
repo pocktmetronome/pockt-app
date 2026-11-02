@@ -1,0 +1,15 @@
+{
+  "name": "pockt-timing",
+  "version": "10.3.0",
+  "description": "Native iOS metronome timing engine for POCKT (AVAudioEngine sample timeline + Core Haptics)",
+  "main": "index.ts",
+  "keywords": ["react-native", "expo", "pockt", "metronome"],
+  "license": "UNLICENSED",
+  "author": "POCKT",
+  "homepage": "https://expo.dev",
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  }
+}

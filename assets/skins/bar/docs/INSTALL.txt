@@ -1,0 +1,23 @@
+POCKT WHISKEY BAR FINAL ASSET PACK v2
+
+EXTRACT CONTENTS INTO:
+C:\Apps\POCKT\assets\skins\bar\
+
+After extraction the final paths should be:
+C:\Apps\POCKT\assets\skins\bar\objects\tap-puck-v1.png
+C:\Apps\POCKT\assets\skins\bar\objects\tempo-block-v1.png
+C:\Apps\POCKT\assets\skins\bar\objects\rocks-glass-v1.png
+C:\Apps\POCKT\assets\skins\bar\objects\jigger-v1.png
+C:\Apps\POCKT\assets\skins\bar\objects\shaker-v1.png
+C:\Apps\POCKT\assets\skins\bar\layers\brass-lip-foreground-v1.png
+C:\Apps\POCKT\assets\skins\bar\layers\warm-light-overlay-v1.png
+C:\Apps\POCKT\assets\skins\bar\layers\brass-reflection-overlay-v1.png
+
+KEEP EXISTING:
+C:\Apps\POCKT\assets\skins\bar\background-v1.png
+C:\Apps\POCKT\assets\POCKT_PRODUCTION_ASSETS\BAR_ROOM_REFERENCE\bar-room-master-reference.png
+
+RETIRE FROM ACTIVE WHISKEY BAR USE, BUT DO NOT DELETE:
+C:\Apps\POCKT\assets\skins\bar\objects\coaster-v1.png
+
+Bartender isolation/clean-plate assets are intentionally NOT part of this active pack. Cursor's latest inspection found they do not composite cleanly, and the locked object-system pass defers bartender-isolation animation rather than forcing bad art.
