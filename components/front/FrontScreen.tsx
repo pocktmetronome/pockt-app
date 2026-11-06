@@ -39,6 +39,7 @@ import { useMetronome } from '@/hooks/use-metronome';
 import { useTuner } from '@/hooks/use-tuner';
 import PocktTiming from '@/modules/pockt-timing';
 import { FaceBoundary } from '@/components/front/FaceBoundary';
+import { notePracticeStopped, noteTrouble } from '@/lib/review-prompt';
 import { Guide, useGuides, type GuideId } from '@/components/front/Guide';
 import { enqueueAudio } from '@/lib/audio-ownership';
 import { LedPanel, type LedTone } from '@/components/front/v9/LedPanel';
@@ -292,8 +293,21 @@ export function FrontScreen() {
   const beatlineBar = Math.max(1, transport.measureIndex - blStart.current + 1);
   // one bar count and one elapsed clock for every face, counted from Play; a face mounting never resets them
   const playT0 = useRef(0);
+  const lastRunStart = useRef(0);
   if (!playing) playT0.current = 0;
   else if (!playT0.current) playT0.current = Date.now();
+  // when playback stops, the rating prompt counts the session (it decides itself whether to ask)
+  useEffect(() => {
+    if (playing) {
+      lastRunStart.current = Date.now();
+      return;
+    }
+    if (lastRunStart.current > 0) {
+      const secs = (Date.now() - lastRunStart.current) / 1000;
+      lastRunStart.current = 0;
+      void notePracticeStopped(secs);
+    }
+  }, [playing]);
 
   /** One accent edit, from a lamp or a face: everything shows it, and the glass says it in words. */
   const previewLamp = (beat: number) => {
@@ -401,6 +415,7 @@ export function FrontScreen() {
     const msg = e instanceof Error ? e.message : String(e);
     // say exactly what went wrong, so a failure can be fixed rather than guessed at
     say(/permission|denied/i.test(msg) ? 'ALLOW MIC IN SETTINGS' : `LOOP · ${shortReason(msg)}`, 6000);
+    void noteTrouble();
     setLoopState('idle');
     setLayers({ count: 0, muted: [], canRedo: false });
     void native?.loopClear?.().catch(() => undefined);
@@ -971,6 +986,7 @@ export function FrontScreen() {
   const ringBox = useMemo(() => win.rect(RING_BOX), [win]);
   const faceFailed = useCallback((name: string) => {
     say('FACE RESET');
+    void noteTrouble();
     if (name !== 'dial') setFace('dial');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [say]);

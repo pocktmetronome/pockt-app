@@ -1,5 +1,7 @@
 import ExpoModulesCore
 import Foundation
+import StoreKit
+import UIKit
 
 struct PocktTimingConfigRecord: Record {
   @Field
@@ -325,6 +327,15 @@ public class PocktTimingModule: Module {
 
     AsyncFunction("loopInfo") { () -> [String: Any] in
       return self.engine.loopInfo()
+    }.runOnQueue(.main)
+
+    // Apple's own rating sheet. iOS decides whether it actually appears (at most 3 times a year; never in
+    // TestFlight builds). Returns whether a window scene was available to ask.
+    AsyncFunction("requestReview") { () -> Bool in
+      let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+      guard let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first else { return false }
+      SKStoreReviewController.requestReview(in: scene)
+      return true
     }.runOnQueue(.main)
 
     AsyncFunction("startTuner") { () -> [String: Any] in

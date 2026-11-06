@@ -64,6 +64,7 @@ declare class PocktTimingNativeModule extends NativeModule<PocktTimingEvents> {
   loopClear?(): Promise<boolean>;
   loopRelease?(): Promise<boolean>;
   loopInfo?(): Promise<Record<string, unknown>>;
+  requestReview?(): Promise<boolean>;
   logBreadcrumb?(identity: string, extra?: Record<string, unknown>): void;
   visualHostSeconds?(): number;
 }
