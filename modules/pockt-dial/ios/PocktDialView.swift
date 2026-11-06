@@ -167,9 +167,14 @@ final class PocktDialView: ExpoView {
     clipsToBounds = true
     isMultipleTouchEnabled = false
     isExclusiveTouch = true
-    backgroundColor = UIColor(red: 0.02, green: 0.018, blue: 0.016, alpha: 1)
+    // Start see-through, with the Metal face hidden: the app only ever uses the ring modes, whose art is
+    // drawn underneath. The opaque Metal face is shown only if a 'metal' face is explicitly applied, so the
+    // view can never sit as a black square over the dial (seen on iPad).
+    isOpaque = false
+    backgroundColor = .clear
     displayLinkProxy.owner = self
     setupMetal()
+    metalLayer.isHidden = true
     setupLifecycle()
   }
 
@@ -198,6 +203,10 @@ final class PocktDialView: ExpoView {
 
   override func didMoveToWindow() {
     super.didMoveToWindow()
+    if ringMode || metalLayer.isHidden {
+      isOpaque = false
+      if ringMode { backgroundColor = .clear }
+    }
     guard window != nil, metalReady else { return }
     if ringMode {
       startHaptics()
@@ -334,6 +343,7 @@ final class PocktDialView: ExpoView {
       layoutRing()
       stopDisplayLink()
     } else {
+      isOpaque = true
       backgroundColor = UIColor(red: 0.02, green: 0.018, blue: 0.016, alpha: 1)
       metalLayer.isHidden = false
       ringLayer.isHidden = true

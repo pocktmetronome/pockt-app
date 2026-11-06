@@ -21,9 +21,9 @@ check(ios.bundleIdentifier === 'com.moneytest.pockt', 'bundle id unchanged', `bu
 check(ios.supportsTablet === true, 'iPad support kept (ITMS-90101)', 'supportsTablet must stay true (ITMS-90101)');
 // Version may never go below what TestFlight already has.
 const ver = String(app.version ?? '0').split('.').map(Number);
-const floor = [13, 0, 0];
+const floor = [13, 1, 1]; // 13.1.0 is live on the App Store; every update must be higher
 const cmp = ver.map((v, i) => v - (floor[i] ?? 0)).find((d) => d !== 0) ?? 0;
-check(cmp >= 0, `version ${app.version} >= 13.0.0`, `version ${app.version} is below 13.0.0 already in TestFlight`);
+check(cmp >= 0, `version ${app.version} > 13.1.0 (live)`, `version ${app.version} must be above 13.1.0, the live App Store version`);
 // Export compliance, background audio, permission texts.
 check(plist.ITSAppUsesNonExemptEncryption === false, 'export compliance declared', 'ITSAppUsesNonExemptEncryption must be false');
 check((plist.UIBackgroundModes ?? []).includes('audio'), 'background audio on', 'UIBackgroundModes must include audio');

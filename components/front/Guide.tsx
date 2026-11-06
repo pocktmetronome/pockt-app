@@ -4,7 +4,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -60,8 +60,21 @@ export function Guide({ id, onDone }: { id: GuideId | null; onDone: () => void }
   const insets = useSafeAreaInsets();
   if (!id) return null;
   return (
-    <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(140)} style={[StyleSheet.absoluteFill, styles.backdrop]}>
-      <View style={[styles.card, { marginTop: insets.top + 24, marginBottom: insets.bottom + 24 }]}>
+    <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(140)} style={[StyleSheet.absoluteFill, styles.backdrop, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
+      {/* tapping outside the card also closes it */}
+      <Pressable accessibilityLabel="Close guide" onPress={onDone} style={StyleSheet.absoluteFill} />
+      <View style={styles.card}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          hitSlop={12}
+          onPressIn={press}
+          onPress={onDone}
+          style={({ pressed }) => [styles.close, pressed && { opacity: 0.6 }]}>
+          <Text style={styles.closeText}>✕</Text>
+        </Pressable>
+        {/* the rows scroll when the screen is short or the text is large, so the button always shows */}
+        <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 4 }} showsVerticalScrollIndicator>
         <Text style={styles.title}>{id === 'loop' ? 'THE LOOPER' : 'SIX FACES'}</Text>
         <Text style={styles.sub}>{id === 'loop' ? 'Everything happens on the LOOP key' : 'The keys along the bottom change the face'}</Text>
         <View style={styles.rows}>
@@ -86,6 +99,7 @@ export function Guide({ id, onDone }: { id: GuideId | null; onDone: () => void }
               ))}
         </View>
         <Text style={styles.tip}>{id === 'loop' ? 'Tip: wear headphones when you add layers.' : 'Press a face key any time to see its name on the display.'}</Text>
+        </ScrollView>
         <Pressable
           accessibilityRole="button"
           onPressIn={press}
@@ -100,7 +114,12 @@ export function Guide({ id, onDone }: { id: GuideId | null; onDone: () => void }
 
 const styles = StyleSheet.create({
   backdrop: { backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', paddingHorizontal: 16 },
+  scroll: { flexGrow: 0, flexShrink: 1 },
+  close: { position: 'absolute', right: 10, top: 10, width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)', zIndex: 2 },
+  closeText: { fontSize: 22, color: NS.inkMute },
   card: {
+    flexShrink: 1,
+    maxHeight: '100%',
     borderRadius: 26,
     borderWidth: 1,
     borderColor: NS.edge,

@@ -1148,7 +1148,7 @@ export function FrontScreen() {
             nativeBpm.current = next;
             if (next !== bpm) setBpm(next, dialMode === 'knurl' ? 'dial' : 'wheel');
           }}
-          style={{ position: 'absolute', left: knurlC.x - dialHalf, top: knurlC.y - dialHalf, width: dialHalf * 2, height: dialHalf * 2 }}
+          style={{ position: 'absolute', left: knurlC.x - dialHalf, top: knurlC.y - dialHalf, width: dialHalf * 2, height: dialHalf * 2, backgroundColor: 'transparent' }}
         />
       ) : null}
 
