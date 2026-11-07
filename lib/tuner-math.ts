@@ -126,6 +126,26 @@ export function trackingAlpha(previous: number, next: number): number {
   return 0.16;
 }
 
+/**
+ * One Euro filter (Casiez, Roussel & Vogel 2012), the standard for live pointers: heavy smoothing when the
+ * pitch is still (no flicker while you hold a note), almost none while it moves (the needle follows the peg
+ * as you turn it). Time-based, so it behaves the same at any reading rate.
+ */
+export const EURO = { minCutoff: 1.4, beta: 0.11, dCutoff: 1.0 };
+export type EuroState = { x: number; dx: number; t: number };
+function euroAlpha(cutoff: number, dt: number): number {
+  const tau = 1 / (2 * Math.PI * cutoff);
+  return 1 / (1 + tau / dt);
+}
+export function euroStep(prev: EuroState | null, x: number, tMs: number, p = EURO): EuroState {
+  if (!prev || !Number.isFinite(prev.x)) return { x, dx: 0, t: tMs };
+  const dt = Math.min(0.25, Math.max(0.004, (tMs - prev.t) / 1000));
+  const dxRaw = (x - prev.x) / dt;
+  const dx = prev.dx + euroAlpha(p.dCutoff, dt) * (dxRaw - prev.dx);
+  const cutoff = p.minCutoff + p.beta * Math.abs(dx);
+  return { x: prev.x + euroAlpha(cutoff, dt) * (x - prev.x), dx, t: tMs };
+}
+
 export const ACQUIRE_FRAMES = 3;
 export const SWITCH_FRAMES = 3;
 export const RELEASE_FRAMES = 8;
@@ -140,6 +160,7 @@ export type TunerTracker = {
   miss: number;
   freqHistory: number[];
   centsEma: number;
+  euro: EuroState | null;
   lastGood: TunerReading | null;
   lastHeardAt: number;
 };
@@ -154,6 +175,7 @@ export function createTunerTracker(): TunerTracker {
     miss: 0,
     freqHistory: [],
     centsEma: 0,
+    euro: null,
     lastGood: null,
     lastHeardAt: 0,
   };
@@ -266,14 +288,13 @@ export function advanceTunerTracker(
   }
 
   const lockMidi = midi;
-  const history = [...(lockMidi === tracker.lockedMidi ? tracker.freqHistory : []), folded].slice(fast ? -2 : -3);
+  const sameNote = lockMidi === tracker.lockedMidi;
+  // a median of three readings drops single-frame outliers (pick noise, a stray harmonic) at ~20 ms cost
+  const history = [...(sameNote ? tracker.freqHistory : []), folded].slice(fast ? -2 : -3);
   const stable = median(history.length ? history : [folded]);
   const rawCents = 1200 * Math.log2(stable / frequencyFromMidi(lockMidi, a4));
-  const cents = ema(
-    lockMidi === tracker.lockedMidi ? tracker.centsEma : rawCents,
-    rawCents,
-    Math.min(0.85, trackingAlpha(lockMidi === tracker.lockedMidi ? tracker.centsEma : rawCents, rawCents) * (fast ? 1.7 : 1))
-  );
+  const euro = euroStep(sameNote ? tracker.euro : null, rawCents, now);
+  const cents = euro.x;
   const namedLock = noteFromMidi(lockMidi);
   const reading: TunerReading = {
     frequency: stable,
@@ -294,6 +315,7 @@ export function advanceTunerTracker(
       miss: 0,
       freqHistory: history,
       centsEma: cents,
+      euro,
       lastGood: reading,
       lastHeardAt: now,
     },

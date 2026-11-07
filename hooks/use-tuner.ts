@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { requestRecordingPermissionsAsync } from 'expo-audio';
+import type { SharedValue } from 'react-native-reanimated';
 
 import { audioClaim } from '@/lib/audio-claim';
 import { audioMode, commitAudioMode, enqueueAudio } from '@/lib/audio-ownership';
@@ -39,7 +40,12 @@ export type TunerDiagnostics = {
   isOtherAudioPlaying?: boolean;
 };
 
-export function useTuner(active: boolean, a4 = DEFAULT_A4, response: 'stable' | 'fast' = 'stable') {
+/**
+ * `centsLive` (optional) receives every smoothed reading straight from the listener, ~47 a second, so the
+ * needle and strobe can follow on the UI thread without a React render per reading. The `reading` state
+ * still updates when the note or in-tune state changes, and at most ~14 times a second otherwise.
+ */
+export function useTuner(active: boolean, a4 = DEFAULT_A4, response: 'stable' | 'fast' = 'stable', centsLive?: SharedValue<number>) {
   const [reading, setReading] = useState<TunerReading | null>(null);
   const [phase, setPhase] = useState<TunerPhase>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +60,7 @@ export function useTuner(active: boolean, a4 = DEFAULT_A4, response: 'stable' | 
   const latch = useRef(createInTuneLatch());
   const live = useRef(false);
   const lastUi = useRef(0);
+  const lastSet = useRef<{ at: number; midi: number; state: string } | null>(null);
   const session = useRef(0);
 
   const cleanup = useCallback(async () => {
@@ -166,10 +173,16 @@ export function useTuner(active: boolean, a4 = DEFAULT_A4, response: 'stable' | 
           const next = stepped.reading;
           if (!next) {
             latch.current = advanceInTuneLatch(latch.current, false, now).latch;
+            lastSet.current = null;
             setReading((prev) => (prev == null ? prev : null));
             return;
           }
-          setReading(next);
+          if (centsLive) centsLive.value = next.cents;
+          const ls = lastSet.current;
+          if (!ls || ls.midi !== next.midi || ls.state !== next.state || now - ls.at >= 70) {
+            lastSet.current = { at: now, midi: next.midi, state: next.state };
+            setReading(next);
+          }
           const locked = advanceInTuneLatch(latch.current, next.state === 'in-tune', now, IN_TUNE_DWELL_MS);
           latch.current = locked.latch;
           if (locked.fire) {
@@ -205,7 +218,7 @@ export function useTuner(active: boolean, a4 = DEFAULT_A4, response: 'stable' | 
         void cleanup();
       }
     };
-  }, [a4, active, cleanup, response]);
+  }, [a4, active, cleanup, response, centsLive]);
 
   return {
     reading,

@@ -176,7 +176,8 @@ export function FrontScreen() {
   const [sheet, setSheet] = useState<SheetId>(null);
   const clock = useBeatClock(m, playing);
   const [tunerOn, setTunerOn] = useState(false);
-  const tuner = useTuner(tunerOn, config.pitchPipeHz || 440);
+  const centsLive = useSharedValue(0);
+  const tuner = useTuner(tunerOn, config.pitchPipeHz || 440, 'stable', centsLive);
   const [light, setLight] = useBeatLight();
   const [demo, setDemo] = useState(0);
   const accentsSv = useSharedValue<number[]>([]);
@@ -869,9 +870,10 @@ export function FrontScreen() {
     const c = Math.abs(reading.cents);
     const L = lk.current;
     if (!L.locked) {
-      if (c <= 3) { if (!L.inSince) L.inSince = nowMs; if (nowMs - L.inSince >= 250) { L.locked = true; L.outSince = 0; } }
+      // in tune within ±2 cents held for 200 ms (pro tuner tolerance); out again past ±4 cents
+      if (c <= 2) { if (!L.inSince) L.inSince = nowMs; if (nowMs - L.inSince >= 200) { L.locked = true; L.outSince = 0; } }
       else L.inSince = 0;
-    } else if (c > 7) { if (!L.outSince) L.outSince = nowMs; if (nowMs - L.outSince >= 180) { L.locked = false; L.inSince = 0; } }
+    } else if (c > 4) { if (!L.outSince) L.outSince = nowMs; if (nowMs - L.outSince >= 150) { L.locked = false; L.inSince = 0; } }
     else L.outSince = 0;
   }
   const locked = heard && lk.current.locked;
@@ -884,10 +886,15 @@ export function FrontScreen() {
   useEffect(() => { st.tuner.value = tunerOn ? 1 : 0; }, [tunerOn, st]);
   useEffect(() => {
     st.heard.value = heard ? 1 : 0;
-    // locked, the needle settles onto the arrow and stays there while the note stays true
-    if (heard && reading) st.needle.value = withTiming(locked ? reading.cents * 0.2 : reading.cents, { duration: locked ? 260 : 110, easing: Easing.out(Easing.quad) });
-    else if (!tunerOn) st.needle.value = 0;
-  }, [heard, reading, tunerOn, locked, st]);
+    if (!tunerOn) st.needle.value = 0;
+  }, [heard, tunerOn, st]);
+  // the needle glides after every reading on the UI thread (~40 ms follow), always showing the true error
+  useFrameCallback((f) => {
+    'worklet';
+    if (st.tuner.value < 0.5 || st.heard.value < 0.5) return;
+    const dt = Math.min(0.05, (f.timeSincePreviousFrame ?? 16) / 1000);
+    st.needle.value += (centsLive.value - st.needle.value) * (1 - Math.exp(-dt / 0.04));
+  });
   const wasLocked = useRef(false);
   useEffect(() => {
     if (locked && !wasLocked.current) {

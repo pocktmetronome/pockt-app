@@ -2052,7 +2052,7 @@ final class PocktTimingEngine {
   private func installMicTap() -> Bool {
     if micTap { return true }
     _ = PocktTryObjC({ self.engine.inputNode.removeTap(onBus: 0) }, nil)
-    let ok = installTapSafely(on: engine.inputNode, bufferSize: 2048) { [weak self] buffer, when in
+    let ok = installTapSafely(on: engine.inputNode, bufferSize: 1024) { [weak self] buffer, when in
       guard let self else { return }
       self.loopCapture(buffer: buffer, when: when)
       if self.tunerLive { self.tunerFeed(buffer: buffer, when: when) }
@@ -2090,36 +2090,42 @@ final class PocktTimingEngine {
     let chans = max(1, Int(buffer.format.channelCount))
     let rate = buffer.format.sampleRate
     let cap = tunerAccum.count
-    tunerAccum.withUnsafeMutableBufferPointer { acc in
-      guard let base = acc.baseAddress else { return }
-      if n >= cap {
-        for k in 0..<cap {
-          let i = n - cap + k
+    // Slide the 4096-sample window forward 1024 samples at a time and analyse at every step, however
+    // large the buffers iOS hands the tap: about 47 readings a second at 48 kHz, so the needle can glide.
+    let hop = 1024
+    let startHost = when.isHostTimeValid
+      ? AVAudioTime.seconds(forHostTime: when.hostTime)
+      : AVAudioTime.seconds(forHostTime: mach_absolute_time()) - Double(n) / max(1, rate)
+    var off = 0
+    while off < n {
+      let m = min(hop, n - off, cap)
+      let from = off
+      tunerAccum.withUnsafeMutableBufferPointer { acc in
+        guard let base = acc.baseAddress else { return }
+        memmove(base, base + m, (cap - m) * MemoryLayout<Float>.stride)
+        for i in 0..<m {
           var v: Float = 0
-          for c in 0..<chans { v += ch[c][i] }
-          base[k] = v / Float(chans)
-        }
-      } else {
-        memmove(base, base + n, (cap - n) * MemoryLayout<Float>.stride)
-        for i in 0..<n {
-          var v: Float = 0
-          for c in 0..<chans { v += ch[c][i] }
-          base[cap - n + i] = v / Float(chans)
+          for c in 0..<chans { v += ch[c][from + i] }
+          base[cap - m + i] = v / Float(chans)
         }
       }
+      off += m
+      tunerAccumCount = min(cap, tunerAccumCount + m)
+      tunerSinceAnalysis += m
+      if tunerAccumCount >= cap && tunerSinceAnalysis >= hop {
+        tunerSinceAnalysis = 0
+        tunerAnalyzeWindow(rate: rate, endHost: startHost + Double(off) / max(1, rate))
+      }
     }
-    tunerAccumCount = min(cap, tunerAccumCount + n)
-    tunerSinceAnalysis += n
-    guard tunerAccumCount >= cap, tunerSinceAnalysis >= 2048 else { return }
-    tunerSinceAnalysis = 0
+  }
+
+  private func tunerAnalyzeWindow(rate: Double, endHost: Double) {
+    let cap = tunerAccum.count
     if running && clickGuardActive && clickGain > 0 {
-      let end = when.isHostTimeValid
-        ? AVAudioTime.seconds(forHostTime: when.hostTime) + Double(n) / max(1, rate)
-        : AVAudioTime.seconds(forHostTime: mach_absolute_time())
-      let start = end - Double(cap) / max(1, rate)
+      let start = endHost - Double(cap) / max(1, rate)
       for i in 0..<clickHostCount {
         let h = clickHostRing[i]
-        if h > 0 && h > start - 0.07 && h < end + 0.01 { return }
+        if h > 0 && h > start - 0.07 && h < endHost + 0.01 { return }
       }
     }
     if tunerFeedBuffer == nil || tunerFeedBuffer?.format.sampleRate != rate {
