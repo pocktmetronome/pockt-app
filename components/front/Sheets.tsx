@@ -5,8 +5,9 @@ import Slider from '@react-native-community/slider';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
-import { Key, NS, Row, Section, Segmented, Sheet, press, tick } from '@/components/front/ui';
+import { Key, LOCK_UP, NS, Row, Section, Segmented, Sheet, press, tick, useLockHit } from '@/components/front/ui';
 import { capturePreset, usePresets } from '@/lib/practice-setups';
 import { TIME_SIGNATURES } from '@/constants/meter';
 import { ROOM_SOUND_PRESETS, SOUND_CATEGORIES } from '@/constants/sound-library';
@@ -207,16 +208,29 @@ const LENS: Record<AccentLevel, object> = {
 };
 
 function BeatPill({ index, level, onPress }: { index: number; level: AccentLevel; onPress: () => void }) {
+  const p = useSharedValue(0);
+  // each change of level lands with the lock-in: a flash on the lens and a settle with no bounce
+  const hit = useLockHit(level);
+  const body = useAnimatedStyle(() => ({ transform: [{ translateY: p.value * 2 }, { scale: 1 - p.value * 0.02 + hit.value * 0.03 }], opacity: 1 - p.value * 0.15 }));
+  const flash = useAnimatedStyle(() => ({ opacity: hit.value * 0.28 }));
+  const ring = useAnimatedStyle(() => ({ opacity: hit.value }));
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Beat ${index + 1}, ${ACCENT_WORD[level]}`}
-      onPressIn={press}
+      onPressIn={() => { p.value = withTiming(1, { duration: 35, easing: Easing.out(Easing.quad) }); press(); }}
+      onPressOut={() => { p.value = withTiming(0, LOCK_UP); }}
       onPress={onPress}
-      style={({ pressed }) => [s.pill, level === 'strong' && s.pillStrong, pressed && s.pillDown]}>
-      <Text style={s.pillNum}>{index + 1}</Text>
-      <View style={[s.lensBig, LENS[level]]} />
-      <Text style={[s.pillWord, level === 'mute' && { color: NS.inkMute }]}>{ACCENT_WORD[level]}</Text>
+      style={s.pillWrap}>
+      <Animated.View style={[s.pill, level === 'strong' && s.pillStrong, body]}>
+        <Animated.View pointerEvents="none" style={[s.pillFlash, flash]} />
+        <Animated.View pointerEvents="none" style={[s.pillRing, ring]} />
+        <Text style={s.pillNum}>{index + 1}</Text>
+        <View style={[s.lensBig, LENS[level]]} />
+        <Text style={[s.pillWord, level === 'mute' && { color: NS.inkMute }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9}>
+          {ACCENT_WORD[level]}
+        </Text>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -856,13 +870,16 @@ const s = StyleSheet.create({
   stepValue: { flex: 1, alignItems: 'center' },
   stepText: { fontFamily: NS.font.light, fontSize: 48, lineHeight: 52, color: NS.glass, fontVariant: ['tabular-nums'] },
   stepCaption: { fontFamily: NS.font.semibold, fontSize: 16, letterSpacing: 2.4, color: NS.inkMute },
-  beats: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill: { width: '23%', flexGrow: 1, maxWidth: '24%', height: 104, borderRadius: 16, borderWidth: 1, borderColor: NS.edge, backgroundColor: NS.key, alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
+  beats: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  pillWrap: { width: '23%', flexGrow: 1, maxWidth: '24.5%' },
+  pill: { height: 104, borderRadius: 16, borderWidth: 1, borderColor: NS.edge, backgroundColor: NS.key, alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, paddingHorizontal: 2 },
   pillStrong: { borderColor: NS.edgeHi },
   pillDown: { transform: [{ translateY: 2 }, { scale: 0.98 }], opacity: 0.8 },
+  pillFlash: { ...StyleSheet.absoluteFillObject, borderRadius: 15, backgroundColor: NS.amber },
+  pillRing: { ...StyleSheet.absoluteFillObject, borderRadius: 16, borderWidth: 1.5, borderColor: NS.amberHi, shadowColor: NS.amber, shadowOpacity: 1, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } },
   pillNum: { fontFamily: NS.font.semibold, fontSize: 18, color: NS.inkDim },
   lensBig: { width: 30, height: 30, borderRadius: 15 },
-  pillWord: { fontFamily: NS.font.semibold, fontSize: 16, letterSpacing: 1.4, color: NS.ink },
+  pillWord: { fontFamily: NS.font.semibold, fontSize: 16, letterSpacing: 0.6, color: NS.ink },
   legend: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14, paddingHorizontal: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   lens: { width: 14, height: 14, borderRadius: 7 },

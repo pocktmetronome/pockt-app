@@ -30,7 +30,8 @@ import { BeatlineFace } from '@/components/front/faces/BeatlineFace';
 import { PendulumFace } from '@/components/front/faces/PendulumFace';
 import { ProFace } from '@/components/front/faces/ProFace';
 import { PulseFace } from '@/components/front/faces/PulseFace';
-import { FONTS, press } from '@/components/front/ui';
+import { FONTS, press, setLockHapticBlocked } from '@/components/front/ui';
+import { effectiveHaptic } from '@/lib/sensory';
 import { Instrument, useInstrumentState, type KeyId } from '@/components/front/v9/Instrument';
 import { Readout, type TempoReadoutProps, type TunerReadoutProps } from '@/components/front/v9/Readout';
 import { VOICE_MAX_BPM, soundStudioName } from '@/constants/sounds';
@@ -266,6 +267,8 @@ export function FrontScreen() {
   // ---- transport mirrors ------------------------------------------------------------------------------
   useEffect(() => { st.bpm.value = bpm; }, [bpm, st]);
   useEffect(() => { st.playing.value = playing ? 1 : 0; }, [playing, st]);
+  // the sheets' lock-in haptic stays out of the way of beat haptics while the clock runs
+  useEffect(() => { setLockHapticBlocked(playing && effectiveHaptic(config)); }, [playing, config.haptic, config.sensoryMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- beat for the faces that are still driven from JS ------------------------------------------------
   const [beatSerial, setBeatSerial] = useState(0);

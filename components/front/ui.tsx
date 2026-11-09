@@ -4,7 +4,7 @@
  */
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
@@ -43,6 +43,38 @@ export const FONTS = {
 
 export const tick = () => void Haptics.selectionAsync().catch(() => undefined);
 export const press = () => void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid).catch(() => undefined);
+
+// ---------------------------------------------------------------------------------------------
+// Lock-in: every selection on a sheet lands like a switch, not a spring. The control moves fast, stops dead
+// (no overshoot), and a short amber flash plus one medium haptic mark the moment it locks. While the
+// metronome is playing with beat haptics on, the haptic is skipped so it never fights the beat.
+// ---------------------------------------------------------------------------------------------
+let lockHapticBlocked = false;
+export const setLockHapticBlocked = (blocked: boolean) => { lockHapticBlocked = blocked; };
+export const lockIn = () => { if (!lockHapticBlocked) void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined); };
+
+/** Stops dead where it lands: critically damped, no bounce. */
+export const LOCK_SPRING = { damping: 32, stiffness: 720, mass: 0.6, overshootClamping: true } as const;
+/** The key coming back up: quick, with a hard stop. */
+export const LOCK_UP = { duration: 110, easing: Easing.out(Easing.cubic) } as const;
+const HIT_FADE = { duration: 260, easing: Easing.out(Easing.cubic) } as const;
+
+/**
+ * A shared value that jumps to 1 and fades to 0 each time `key` changes after mount, firing the lock-in
+ * haptic. Drive a glow and a small settle from it. Returns 0 while untouched.
+ */
+export function useLockHit(key: unknown, enabled = true) {
+  const hit = useSharedValue(0);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    if (!enabled) return;
+    hit.value = 1;
+    hit.value = withTiming(0, HIT_FADE);
+    lockIn();
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  return hit;
+}
 
 /** Bottom sheet: springs up, drags down to close, dims the instrument behind it. */
 export function Sheet({
@@ -176,27 +208,33 @@ export function Key({
   children?: ReactNode;
 }) {
   const p = useSharedValue(0);
+  // the hit: fires when this key becomes the selected one, a brief amber flash and a settle with no bounce
+  const hit = useLockHit(selected ? 1 : 0, !!selected);
   const a = useAnimatedStyle(() => ({
-    transform: [{ translateY: p.value * 2 }, { scale: 1 - p.value * 0.02 }],
-    opacity: 1 - p.value * 0.18,
+    transform: [{ translateY: p.value * 2 }, { scale: 1 - p.value * 0.02 + hit.value * 0.03 }],
+    opacity: 1 - p.value * 0.15,
   }));
+  const flash = useAnimatedStyle(() => ({ opacity: hit.value * 0.28 }));
+  const ring = useAnimatedStyle(() => ({ opacity: hit.value }));
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? [label, caption].filter(Boolean).join(', ')}
       accessibilityState={{ selected: !!selected }}
       onPressIn={() => {
-        p.value = withTiming(1, { duration: 30 });
+        p.value = withTiming(1, { duration: 35, easing: Easing.out(Easing.quad) });
         press();
       }}
       onPressOut={() => {
-        p.value = withSpring(0, { damping: 9, stiffness: 420 });
+        p.value = withTiming(0, LOCK_UP);
       }}
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={450}
       style={[styles.keyWrap, style]}>
       <Animated.View style={[styles.key, big && styles.keyBig, selected && styles.keyOn, tone === 'amber' && styles.keyAmber, a]}>
+        <Animated.View pointerEvents="none" style={[styles.keyFlash, flash]} />
+        <Animated.View pointerEvents="none" style={[styles.keyRing, ring]} />
         <View style={styles.keyLip} />
         {selected ? <View style={styles.led} /> : <View style={styles.ledOff} />}
         {children}
@@ -225,12 +263,17 @@ export function Segmented<T extends string | number>({
   const pos = useSharedValue(index);
   const w = useSharedValue(0);
   useEffect(() => {
-    pos.value = withSpring(index, { damping: 20, stiffness: 320 });
+    // the thumb slides fast and stops dead on the new choice
+    pos.value = withSpring(index, LOCK_SPRING);
   }, [index, pos]);
+  const hit = useLockHit(index);
   const thumb = useAnimatedStyle(() => ({ width: w.value / options.length - 6, transform: [{ translateX: 3 + pos.value * (w.value / options.length) }] }));
+  const land = useAnimatedStyle(() => ({ opacity: hit.value * 0.35 }));
   return (
     <View style={styles.seg} onLayout={(e) => (w.value = e.nativeEvent.layout.width)}>
-      <Animated.View style={[styles.segThumb, thumb]} />
+      <Animated.View style={[styles.segThumb, thumb]}>
+        <Animated.View pointerEvents="none" style={[styles.segLand, land]} />
+      </Animated.View>
       {options.map((o) => {
         const on = o.value === value;
         return (
@@ -328,6 +371,8 @@ const styles = StyleSheet.create({
   keyOn: { borderColor: NS.edgeHi, backgroundColor: '#2A1E12' },
   keyAmber: { borderColor: 'rgba(240,162,60,0.7)', backgroundColor: '#2C1F10' },
   keyLip: { position: 'absolute', left: 12, right: 12, top: 1, height: 1, backgroundColor: 'rgba(255,232,196,0.16)' },
+  keyFlash: { ...StyleSheet.absoluteFillObject, borderRadius: 13, backgroundColor: NS.amber },
+  keyRing: { ...StyleSheet.absoluteFillObject, borderRadius: 14, borderWidth: 1.5, borderColor: NS.amberHi, shadowColor: NS.amber, shadowOpacity: 1, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } },
   led: { position: 'absolute', top: 8, right: 9, width: 8, height: 8, borderRadius: 4, backgroundColor: NS.amberHi, shadowColor: NS.amber, shadowOpacity: 1, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
   ledOff: { position: 'absolute', top: 8, right: 9, width: 8, height: 8, borderRadius: 4, backgroundColor: '#2C2117' },
   keyText: { fontFamily: NS.font.medium, fontSize: 20, color: NS.inkDim },
@@ -337,7 +382,8 @@ const styles = StyleSheet.create({
   keyCaption: { marginTop: 2, fontFamily: NS.font.medium, fontSize: 17, color: NS.inkMute },
   keyCaptionOn: { color: NS.amberHi },
   seg: { flexDirection: 'row', height: 54, borderRadius: 14, borderWidth: 1, borderColor: NS.edge, backgroundColor: '#100D0B', overflow: 'hidden' },
-  segThumb: { position: 'absolute', top: 3, bottom: 3, left: 0, borderRadius: 11, backgroundColor: '#2C1F12', borderWidth: 1, borderColor: NS.edgeHi },
+  segThumb: { position: 'absolute', top: 3, bottom: 3, left: 0, borderRadius: 11, backgroundColor: '#2C1F12', borderWidth: 1, borderColor: NS.edgeHi, overflow: 'hidden' },
+  segLand: { ...StyleSheet.absoluteFillObject, backgroundColor: NS.amber },
   segItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   segText: { fontFamily: NS.font.medium, fontSize: 17, color: NS.inkMute },
   segTextOn: { color: NS.amberHi },
