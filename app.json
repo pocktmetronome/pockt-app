@@ -2,7 +2,7 @@
   "expo": {
     "name": "POCKT",
     "slug": "POCKT",
-    "version": "13.1.3",
+    "version": "13.1.4",
     "orientation": "portrait",
     "icon": "./assets/branding/pockt-brass-app-icon.png",
     "scheme": "pockt",
@@ -13,7 +13,7 @@
       "supportsTablet": true,
       "requireFullScreen": true,
       "bundleIdentifier": "com.moneytest.pockt",
-      "buildNumber": "165",
+      "buildNumber": "191",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "CADisableMinimumFrameDurationOnPhone": true,
