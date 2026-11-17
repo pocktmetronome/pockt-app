@@ -40,7 +40,7 @@ import { useMetronome } from '@/hooks/use-metronome';
 import { useTuner } from '@/hooks/use-tuner';
 import PocktTiming from '@/modules/pockt-timing';
 import { FaceBoundary } from '@/components/front/FaceBoundary';
-import { notePracticeStopped, noteTrouble } from '@/lib/review-prompt';
+import { noteAppOpened, notePracticeStopped, noteTrouble } from '@/lib/review-prompt';
 import { Guide, useGuides, type GuideId } from '@/components/front/Guide';
 import { enqueueAudio } from '@/lib/audio-ownership';
 import { LedPanel, type LedTone } from '@/components/front/v9/LedPanel';
@@ -128,9 +128,14 @@ function Key({
         else press();
         onPressIn?.(e.nativeEvent.timestamp);
         if (onRepeat) {
+          // only one repeat chain may ever run: an orphaned one would keep stepping after the finger lifts
+          stop();
+          const began = Date.now();
           let n = 0;
           const tick = (ms: number) => {
             timer.current = setTimeout(() => {
+              // safety: a hold never runs on by itself; 20 to 400 takes about 6 s, so 12 s means the lift was lost
+              if (Date.now() - began > 12000) { stop(); return; }
               n += 1;
               // a held key ticks lightly every fifth step, never a continuous buzz
               if (n % 5 === 1) void Haptics.selectionAsync().catch(() => undefined);
@@ -300,6 +305,7 @@ export function FrontScreen() {
   const lastRunStart = useRef(0);
   if (!playing) playT0.current = 0;
   else if (!playT0.current) playT0.current = Date.now();
+  useEffect(() => { void noteAppOpened(); }, []);
   // when playback stops, the rating prompt counts the session (it decides itself whether to ask)
   useEffect(() => {
     if (playing) {

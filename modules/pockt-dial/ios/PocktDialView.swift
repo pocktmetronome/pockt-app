@@ -125,6 +125,12 @@ final class PocktDialView: ExpoView {
   private var ringRotation: CGFloat = 0
   private var ringValue: Double = 120
   private var ringActive = false
+  /// The one finger that owns the ring. Other fingers are ignored; only this finger lifting ends the turn.
+  private weak var ringTouch: UITouch?
+  /// A finger inside this share of the radius is over the hub, where angle means nothing: it never turns the ring.
+  private static let hubFrac: CGFloat = 0.38
+  /// No human turn moves more than this between two touch samples; a bigger jump is a slide across the hub.
+  private static let maxSampleDeg: Double = 25
   private var ringLastAngle: CGFloat = 0
   private var ringHaveAngle = false
   private var ringLimitArmed = true
@@ -203,6 +209,8 @@ final class PocktDialView: ExpoView {
 
   override func didMoveToWindow() {
     super.didMoveToWindow()
+    // leaving the screen mid-turn: UIKit may never deliver the lift, so let go here or the ring stays locked
+    if window == nil { resetRingTouch() }
     if ringMode || metalLayer.isHidden {
       isOpaque = false
       if ringMode { backgroundColor = .clear }
@@ -252,7 +260,11 @@ final class PocktDialView: ExpoView {
 
   override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
     if ringMode {
-      guard !ringActive, let touch = touches.first else { return }
+      // Self-heal: if the finger that owned the ring is gone (its lift was never delivered), take the new one.
+      if ringActive, let owner = ringTouch, owner.phase != .ended, owner.phase != .cancelled, event?.allTouches?.contains(owner) == true { return }
+      if ringActive { resetRingTouch() }
+      guard let touch = touches.first else { return }
+      ringTouch = touch
       ringBegin(touch, event: event)
       return
     }
@@ -262,8 +274,8 @@ final class PocktDialView: ExpoView {
 
   override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
     if ringMode {
-      guard ringActive, let touch = touches.first else { return }
-      ringMove(touch, event: event)
+      guard ringActive, let owner = ringTouch, touches.contains(owner) else { return }
+      ringMove(owner, event: event)
       return
     }
     guard metalReady, let touch = touches.first else { return }
@@ -272,6 +284,8 @@ final class PocktDialView: ExpoView {
 
   override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
     if ringMode {
+      // a second finger lifting must not end the first finger's turn
+      if let owner = ringTouch, !touches.contains(owner) { return }
       ringEnd()
       return
     }
@@ -281,6 +295,7 @@ final class PocktDialView: ExpoView {
 
   override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
     if ringMode {
+      if let owner = ringTouch, !touches.contains(owner) { return }
       ringEnd()
       return
     }
@@ -326,6 +341,8 @@ final class PocktDialView: ExpoView {
     wheelMode = wheel
     ringHidden = hide
     guard next != ringMode else { return }
+    // switching out of the ring mid-turn: end that turn first, or the ring would stay locked when it returns
+    if ringMode { resetRingTouch() }
     ringMode = next
     if ringMode {
       dragging = false
@@ -461,9 +478,16 @@ final class PocktDialView: ExpoView {
     CATransaction.commit()
   }
 
+  /// Drops any half-finished turn without emitting a tempo: the ring is free for the next finger.
+  private func resetRingTouch() {
+    guard ringActive else { ringTouch = nil; return }
+    ringEnd()
+  }
+
   private func ringEnd() {
     guard ringActive else { return }
     ringActive = false
+    ringTouch = nil
     onTurn(["rad": Double(ringRotation)])
     ringHaveAngle = false
     ringReleasedAt = CACurrentMediaTime()
@@ -485,7 +509,13 @@ final class PocktDialView: ExpoView {
 
   /// One finger sample. Clockwise raises tempo. Every integer is stepped in order.
   private func ringTrack(_ point: CGPoint, time: TimeInterval) {
-    if fingerRadius(at: point) < 8 { return }
+    // Over the hub the angle swings wildly: a finger sliding across the dial would read as a huge turn and
+    // slam the tempo to 20 or 400. Ignore it there, and pick the angle up fresh when the finger comes back out.
+    let half = min(bounds.width, bounds.height) * 0.5
+    if fingerRadius(at: point) < max(8, half * PocktDialView.hubFrac) {
+      ringHaveAngle = false
+      return
+    }
     let next = fingerAngle(at: point)
     guard ringHaveAngle else {
       ringLastAngle = next
@@ -497,6 +527,11 @@ final class PocktDialView: ExpoView {
     while delta > .pi { delta -= 2 * .pi }
     while delta < -.pi { delta += 2 * .pi }
     ringLastAngle = next
+    // One sample can't move more than a hand can turn; a bigger jump is a slide, not a turn.
+    if abs(Double(delta) * 180 / .pi) > PocktDialView.maxSampleDeg {
+      ringLastTime = time
+      return
+    }
     // fingerAngle is counter-clockwise positive; turn it into clockwise degrees.
     var clockwiseDeg = Double(-delta) * 180 / .pi
     if invert { clockwiseDeg = -clockwiseDeg }

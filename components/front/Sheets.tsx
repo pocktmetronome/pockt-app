@@ -4,7 +4,7 @@
 import Slider from '@react-native-community/slider';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { Key, LOCK_UP, NS, Row, Section, Segmented, Sheet, press, tick, useLockHit } from '@/components/front/ui';
@@ -196,6 +196,13 @@ export function MeterSheet({ open, onClose, config, update }: Common) {
     </Sheet>
   );
 }
+
+/** Opens the App Store straight to the write-a-review page (Apple allows a link like this at any time). */
+const openRating = () => {
+  void Linking.openURL('itms-apps://itunes.apple.com/app/id6803804512?action=write-review').catch(() =>
+    Linking.openURL('https://apps.apple.com/app/id6803804512?action=write-review').catch(() => undefined)
+  );
+};
 
 const unitName = (u: number) => ({ 2: 'halves', 4: 'quarters', 8: 'eighths', 16: 'sixteenths' } as Record<number, string>)[u] ?? 'quarters';
 
@@ -671,6 +678,10 @@ export function SettingsSheet({
       </Section>
         </>
       ) : null}
+      <Section title="Love POCKT?" hint="Free forever">
+        <Key label="★  Rate POCKT" big tone="amber" accessibilityLabel="Rate POCKT on the App Store" onPress={openRating} />
+        <Text style={s.rateNote}>A quick rating helps other musicians find it.</Text>
+      </Section>
       <Section title="Start over">
         <ResetKey
           label="Reset everything"
@@ -871,6 +882,7 @@ const s = StyleSheet.create({
   stepText: { fontFamily: NS.font.light, fontSize: 48, lineHeight: 52, color: NS.glass, fontVariant: ['tabular-nums'] },
   stepCaption: { fontFamily: NS.font.semibold, fontSize: 16, letterSpacing: 2.4, color: NS.inkMute },
   beats: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  rateNote: { marginTop: 8, textAlign: 'center', fontFamily: NS.font.regular, fontSize: 17, color: NS.inkMute },
   pillWrap: { width: '23%', flexGrow: 1, maxWidth: '24.5%' },
   pill: { height: 104, borderRadius: 16, borderWidth: 1, borderColor: NS.edge, backgroundColor: NS.key, alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, paddingHorizontal: 2 },
   pillStrong: { borderColor: NS.edgeHi },

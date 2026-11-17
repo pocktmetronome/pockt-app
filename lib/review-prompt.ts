@@ -49,6 +49,16 @@ async function save(s: State) {
   }
 }
 
+/** Call once at launch: starts the first-use clock then, not at the first Stop. */
+export async function noteAppOpened() {
+  try {
+    if (await AsyncStorage.getItem(KEY)) return;
+  } catch {
+    return;
+  }
+  await save(await load());
+}
+
 /** Something went wrong (a reset face, a looper or tuner error): no prompt for a couple of hours. */
 export async function noteTrouble() {
   const s = await load();
