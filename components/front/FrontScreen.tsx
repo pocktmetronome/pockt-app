@@ -42,6 +42,7 @@ import PocktTiming from '@/modules/pockt-timing';
 import { FaceBoundary } from '@/components/front/FaceBoundary';
 import { noteAppOpened, notePracticeStopped, noteTrouble } from '@/lib/review-prompt';
 import { Guide, useGuides, type GuideId } from '@/components/front/Guide';
+import { UpdateCard, useUpdateCard } from '@/components/front/UpdateCard';
 import { enqueueAudio } from '@/lib/audio-ownership';
 import { LedPanel, type LedTone } from '@/components/front/v9/LedPanel';
 import { GlassUnder, Seat } from '@/components/front/faces/Optics';
@@ -640,6 +641,10 @@ export function FrontScreen() {
   const guides = useGuides();
   const [guide, setGuide] = useState<GuideId | null>(null);
   const afterGuide = useRef<(() => void) | null>(null);
+  // someone who saw the welcome guide on an earlier version already had POCKT: they get the update card
+  const hadPocktBefore = useRef<boolean | null>(null);
+  if (guides.ready && hadPocktBefore.current === null) hadPocktBefore.current = !!guides.seen.faces;
+  const news = useUpdateCard(guides.ready && hydrated, hadPocktBefore.current === true, playing);
   useEffect(() => {
     if (guides.ready && !guides.seen.faces) setGuide('faces');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1239,6 +1244,11 @@ export function FrontScreen() {
       <SoundSheet open={sheet === 'sound'} onClose={() => setSheet(null)} config={config} update={update} preview={previewSound} />
       <SettingsSheet open={sheet === 'settings'} onClose={() => setSheet(null)} config={config} update={update} loopLayers={layers} onMuteLayer={muteLayer} onDeleteLayer={deleteLayer} loopBars={lp.current.bars} face={face} onGuide={(g) => { setSheet(null); setTimeout(() => setGuide(g), 250); }} trainer={trainer} onTrainer={setTrainer} light={face === 'pulse' || face === 'pro' || face === 'beatline' ? light : undefined} onLight={setLight} />
       <Guide id={guide} onDone={closeGuide} />
+      <UpdateCard
+        visible={news.show && !guide}
+        onClose={news.close}
+        onShowMe={() => { news.close(); setTimeout(() => setSheet('settings'), 200); }}
+      />
       <FaceSheet
         open={sheet === 'face'}
         onClose={() => setSheet(null)}

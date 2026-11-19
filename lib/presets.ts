@@ -1,3 +1,4 @@
+import { MAX_VOLUME } from '@/lib/audio-session-policy';
 import { migrateAccentSwatch, type AccentSwatch, type DisplayPrefs } from '@/constants/display';
 import { SUBDIVISION_ORDER, TIME_SIGNATURE_ORDER } from '@/constants/meter';
 import { isSoundId } from '@/constants/sounds';
@@ -32,7 +33,7 @@ export function snapshotPreset(name: string, config: MetronomeConfig, accentColo
     subdivision: config.subdivision,
     accentPattern: sanitizeAccentPattern(config.accentPattern, config.timeSignature),
     sound: config.sound,
-    volume: Math.min(1, Math.max(0, config.volume)),
+    volume: Math.min(MAX_VOLUME, Math.max(0, config.volume)),
     haptic: config.haptic,
     flashOnBeat: config.flashOnBeat,
     flashScreenOnBeat: config.flashScreenOnBeat,
@@ -49,7 +50,7 @@ export function presetToPatch(preset: ClassicPreset): Partial<MetronomeConfig> {
     subdivision: preset.subdivision,
     accentPattern: sanitizeAccentPattern(preset.accentPattern, preset.timeSignature),
     sound: preset.sound,
-    volume: Math.min(1, Math.max(0, preset.volume)),
+    volume: Math.min(MAX_VOLUME, Math.max(0, preset.volume)),
     haptic: preset.haptic,
     flashOnBeat: preset.flashOnBeat,
     flashScreenOnBeat: preset.flashScreenOnBeat,
@@ -81,7 +82,7 @@ export function sanitizePreset(raw: unknown): ClassicPreset | null {
     subdivision,
     accentPattern: sanitizeAccentPattern(source.accentPattern, timeSignature),
     sound: source.sound,
-    volume: Math.min(1, Math.max(0, typeof source.volume === 'number' ? source.volume : 0.8)),
+    volume: Math.min(MAX_VOLUME, Math.max(0, typeof source.volume === 'number' ? source.volume : 1)),
     haptic: source.haptic !== false,
     flashOnBeat: source.flashOnBeat === true,
     flashScreenOnBeat: source.flashScreenOnBeat === true,

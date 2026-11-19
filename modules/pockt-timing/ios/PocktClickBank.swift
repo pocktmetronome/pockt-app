@@ -477,6 +477,62 @@ final class PocktClickBank {
     return out
   }
 
+  /// Volume Boost: raises a click by `gainDb` through an offline peak limiter with lookahead. The whole click
+  /// is known in advance, so the gain can ease down just before each peak and no sample ever passes the
+  /// ceiling (-1 dBFS): louder, never clipped. Same envelope on every channel so the image doesn't shift.
+  static func boosted(_ buffer: AVAudioPCMBuffer, gainDb: Float) -> AVAudioPCMBuffer {
+    let frames = Int(buffer.frameLength)
+    guard gainDb > 0, frames > 0,
+          let src = buffer.floatChannelData,
+          let out = AVAudioPCMBuffer(pcmFormat: buffer.format, frameCapacity: buffer.frameLength),
+          let dst = out.floatChannelData
+    else { return buffer }
+    out.frameLength = buffer.frameLength
+    let channels = max(1, Int(buffer.format.channelCount))
+    let rate = max(1, buffer.format.sampleRate)
+    let g = powf(10, gainDb / 20)
+    let ceiling: Float = 0.89
+    // 1. the most gain each sample can take without passing the ceiling
+    var allow = [Float](repeating: g, count: frames)
+    for i in 0..<frames {
+      var peak: Float = 0
+      for c in 0..<channels { peak = max(peak, abs(src[c][i])) }
+      if peak > 1e-9 { allow[i] = min(g, ceiling / peak) }
+    }
+    // 2. look ahead: each sample also respects the peaks just after it
+    let ahead = max(1, Int(0.0015 * rate))
+    var env = [Float](repeating: g, count: frames)
+    var i = frames - 1
+    while i >= 0 {
+      var m = allow[i]
+      var j = i + 1
+      let end = min(frames - 1, i + ahead)
+      while j <= end { m = min(m, allow[j]); j += 1 }
+      env[i] = m
+      i -= 1
+    }
+    // 3. release: gain recovers smoothly after a peak (never faster than the limit allows)
+    let kr = 1 - expf(-1 / Float(0.06 * rate))
+    var e = g
+    for k in 0..<frames {
+      e = min(env[k], e + (g - e) * kr)
+      env[k] = e
+    }
+    // 4. attack: ease down into each peak instead of stepping
+    let ka = 1 - expf(-1 / Float(0.0015 * rate))
+    if frames > 1 {
+      var k = frames - 2
+      while k >= 0 {
+        env[k] = min(env[k], env[k + 1] + (g - env[k + 1]) * ka)
+        k -= 1
+      }
+    }
+    for c in 0..<channels {
+      for k in 0..<frames { dst[c][k] = src[c][k] * env[k] }
+    }
+    return out
+  }
+
   /// Original family member: duller/lower vs brighter/higher. Never volume-only.
   static func deriveFamilyMember(_ buffer: AVAudioPCMBuffer, brighter: Bool) -> AVAudioPCMBuffer {
     guard let out = AVAudioPCMBuffer(pcmFormat: buffer.format, frameCapacity: buffer.frameLength) else {

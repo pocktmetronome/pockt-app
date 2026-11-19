@@ -108,16 +108,20 @@ export function overlapIsIllegal(a: AudioSessionModeState, b: AudioSessionModeSt
 }
 
 /** Persist load: 0/NaN/out-of-range must not silence future launches. Live 0 is still allowed. */
-export function sanitizeMasterVolume(value: unknown, fallback = 0.8): number {
+/** Master volume runs 0...1.5: above 1 is Boost (the native engine limits each click, so it never clips). */
+export const MAX_VOLUME = 1.5;
+
+export function sanitizeMasterVolume(value: unknown, fallback = 1): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
-  if (value < 0 || value > 1) return fallback;
+  if (value < 0 || value > MAX_VOLUME) return fallback;
   if (value === 0) return fallback;
   return value;
 }
 
 export function clampLiveVolume(volume: number): number {
   if (!Number.isFinite(volume)) return 0;
-  return Math.min(1, Math.max(0, volume));
+  // Boost-safe: a level above 100% passes through untouched (older sliders only ever send 0...1 when dragged)
+  return Math.min(MAX_VOLUME, Math.max(0, volume));
 }
 
 /** Perceptual master gain. Slider 0 is silence. Low slider values stay audible. */

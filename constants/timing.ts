@@ -77,7 +77,7 @@ export const DEFAULT_CONFIG: MetronomeConfig = {
   customAccentSoundId: null,
   recentSounds: [],
   favoriteSounds: [],
-  volume: 0.8,
+  volume: 1,
   haptic: false,
   smartPendulumCenterHaptic: false,
   rigBeatLight: true,

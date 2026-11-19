@@ -2,8 +2,9 @@
  * The four panels the front page opens: Tempo, Meter, Sound, Settings. One language, large type.
  */
 import Slider from '@react-native-community/slider';
+import { MAX_VOLUME } from '@/lib/audio-session-policy';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
@@ -533,7 +534,7 @@ export function SettingsSheet({
         ) : null}
       </Section>
       <Section title="Levels">
-        <Level label="Volume" value={config.volume} onChange={(volume) => update({ volume })} />
+        <VolumeLevel value={config.volume} onChange={(volume) => update({ volume })} />
         <Level label="Accent" value={config.accentVolume} onChange={(accentVolume) => update({ accentVolume })} />
         <Level label="Subdivision" value={config.subVolume} onChange={(subVolume) => update({ subVolume })} />
       </Section>
@@ -773,6 +774,75 @@ function Level({ label, value, onChange }: { label: string; value: number; onCha
   );
 }
 
+/**
+ * Master volume, 0 to 100% and on into Boost (to MAX_VOLUME). A notch at 100% holds the thumb briefly with a
+ * haptic tick, so Boost is always a choice. The boost zone shades amber to red. The readout in the zone is the
+ * real gain the engine adds (up to +9 dB, limited so clicks never distort), never an inflated percentage.
+ */
+function VolumeLevel({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [w, setW] = useState(0);
+  const last = useRef(value);
+  const inset = 15; // UISlider runs its track between thumb centres
+  const track = Math.max(0, w - inset * 2);
+  const at = (v: number) => inset + (Math.min(MAX_VOLUME, Math.max(0, v)) / MAX_VOLUME) * track;
+  const snap = (v: number) => (Math.abs(v - 1) < 0.035 ? 1 : v);
+  const move = (raw: number) => {
+    const v = snap(raw);
+    // the notch: a tick each time the thumb crosses into or out of Boost
+    if ((last.current <= 1) !== (v <= 1)) tick();
+    last.current = v;
+    onChange(Math.round(v * 100) / 100);
+  };
+  const boost = value > 1;
+  const db = boost ? Math.round(((value - 1) / (MAX_VOLUME - 1)) * 9) : 0;
+  return (
+    <View style={s.level}>
+      <View style={s.levelHead}>
+        <Text style={s.levelLabel}>Volume</Text>
+        <Text style={[s.levelValue, boost && s.boostValue]}>{boost ? `BOOST +${db} dB` : `${Math.round(value * 100)}%`}</Text>
+      </View>
+      <View onLayout={(e) => setW(e.nativeEvent.layout.width)} style={{ height: 44, justifyContent: 'center' }}>
+        {w > 0 ? (
+          <>
+            {/* the track runs edge to edge like every other slider; the thumb centre maps inside the inset */}
+            <View style={[s.volTrack, { left: 0, width: w }]} />
+            <View style={[s.volBoostHint, { left: at(1), width: w - at(1) }]} />
+            <View style={[s.volFill, { left: 0, width: Math.min(at(value), at(1)) }]} />
+            {boost ? (
+              <LinearGradient
+                colors={[NS.amber, '#F5862E', '#E5402A']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[s.volBoostFill, { left: at(1), width: w - at(1) }]}>
+                <View style={[s.volBoostMask, { left: at(value) - at(1) }]} />
+              </LinearGradient>
+            ) : null}
+            <View style={[s.volNotch, { left: at(1) - 1 }]} />
+          </>
+        ) : null}
+        <Slider
+          accessibilityLabel="Volume"
+          minimumValue={0}
+          maximumValue={MAX_VOLUME}
+          step={0.01}
+          value={value}
+          onValueChange={move}
+          onSlidingComplete={move}
+          minimumTrackTintColor="transparent"
+          maximumTrackTintColor="transparent"
+          thumbTintColor={boost ? '#FFD9A8' : NS.ink}
+          style={{ height: 44 }}
+        />
+      </View>
+      <View style={s.volScale}>
+        <Text style={s.volScaleText}>0</Text>
+        <Text style={[s.volScaleText, { position: 'absolute', left: w > 0 ? at(1) - 20 : 0, width: 40, textAlign: 'center' }]}>100%</Text>
+        <Text style={[s.volScaleText, s.volScaleBoost]}>BOOST</Text>
+      </View>
+    </View>
+  );
+}
+
 // ---------------------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------------
 // Face options: beat-light colours and styles (Pulse, Pendulum, Pro, Beatline)
@@ -915,4 +985,14 @@ const s = StyleSheet.create({
   levelHead: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 2 },
   levelLabel: { fontFamily: NS.font.semibold, fontSize: 18, color: NS.ink },
   levelValue: { fontFamily: NS.font.medium, fontSize: 17, color: NS.amberHi, fontVariant: ['tabular-nums'] },
+  boostValue: { color: '#F5862E' },
+  volTrack: { position: 'absolute', height: 4, borderRadius: 2, backgroundColor: '#3A3026' },
+  volBoostHint: { position: 'absolute', height: 4, borderRadius: 2, backgroundColor: 'rgba(229,64,42,0.22)' },
+  volFill: { position: 'absolute', height: 4, borderRadius: 2, backgroundColor: NS.amber },
+  volBoostFill: { position: 'absolute', height: 4, borderRadius: 2, overflow: 'hidden' },
+  volBoostMask: { position: 'absolute', top: 0, bottom: 0, right: 0, backgroundColor: '#46302A' },
+  volNotch: { position: 'absolute', width: 2, height: 22, borderRadius: 1, backgroundColor: NS.ink, opacity: 0.85 },
+  volScale: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 2, marginTop: -4 },
+  volScaleText: { fontFamily: NS.font.medium, fontSize: 15, color: NS.inkMute },
+  volScaleBoost: { color: '#E5402A' },
 });

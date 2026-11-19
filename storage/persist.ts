@@ -42,9 +42,11 @@ import { migrateDisabledExperience } from '@/lib/pockt-experience';
 import { migrateRoomVoice } from '@/lib/room-voice';
 import { migrateCustomLayout } from '@/lib/custom-layout';
 import { sanitizePhotoUri } from '@/lib/photo-uri';
-import { sanitizeMasterVolume } from '@/lib/audio-session-policy';
+import { MAX_VOLUME, sanitizeMasterVolume } from '@/lib/audio-session-policy';
 
 const STORAGE_KEY = 'pockt.settings.v7';
+/** Set once the old 80% default has been moved to the new 100% default. */
+const VOLUME_DEFAULT_V2_KEY = 'pockt.volume-default.v2';
 const CUSTOM_LAYOUT_KEY = 'pockt.custom-layout.v3';
 const LEGACY_KEYS = [
   'pockt.settings.v6',
@@ -473,6 +475,16 @@ export async function loadSettings(): Promise<MetronomeConfig | null> {
           /* keep sanitized config layout */
         }
       }
+      // The default moved from 80% to 100%. Anyone still sitting exactly on the old default never chose it,
+      // so they move up once; anyone who set their own level keeps it.
+      try {
+        if (!(await AsyncStorage.getItem(VOLUME_DEFAULT_V2_KEY))) {
+          if (Math.abs(parsed.volume - 0.8) < 0.001) parsed.volume = 1;
+          await AsyncStorage.setItem(VOLUME_DEFAULT_V2_KEY, '1');
+        }
+      } catch {
+        /* migration is best-effort */
+      }
       return parsed;
     }
 
@@ -494,10 +506,12 @@ export async function saveSettings(config: MetronomeConfig): Promise<void> {
   try {
     const safe = {
       ...config,
-      volume: Number.isFinite(config.volume) ? Math.min(1, Math.max(0, config.volume)) : DEFAULT_CONFIG.volume,
+      volume: Number.isFinite(config.volume) ? Math.min(MAX_VOLUME, Math.max(0, config.volume)) : DEFAULT_CONFIG.volume,
     };
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(safe));
     await AsyncStorage.setItem(CUSTOM_LAYOUT_KEY, JSON.stringify(safe.customLayout));
+    // a level saved by this version is a real choice: the 80%-default migration must never touch it later
+    await AsyncStorage.setItem(VOLUME_DEFAULT_V2_KEY, '1');
   } catch {
     /* ignore */
   }

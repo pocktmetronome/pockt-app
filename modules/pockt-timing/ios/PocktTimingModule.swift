@@ -515,7 +515,7 @@ public class PocktTimingModule: Module {
     config.soundBeat = record.soundBeat
     config.soundSub = record.soundSub
     config.voiceCount = record.voiceCount
-    config.volume = min(1, max(0, record.volume))
+    config.volume = min(PocktTimingEngine.maxVolume, max(0, record.volume))
     config.haptic = record.haptic
     config.hapticSyncMs = min(60, max(-60, record.hapticSyncMs))
     config.hapticStrength = min(2, max(0.3, record.hapticStrength))

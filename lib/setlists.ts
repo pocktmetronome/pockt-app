@@ -1,3 +1,4 @@
+import { MAX_VOLUME } from '@/lib/audio-session-policy';
 import { isRoomId } from '@/constants/rooms';
 import { SUBDIVISION_ORDER, TIME_SIGNATURE_ORDER } from '@/constants/meter';
 import { isSoundId } from '@/constants/sounds';
@@ -41,7 +42,7 @@ export function snapshotSong(name: string, config: MetronomeConfig, notes = ''):
     subdivision: config.subdivision,
     accentPattern: sanitizeAccentPattern(config.accentPattern, config.timeSignature),
     sound: config.sound,
-    volume: Math.min(1, Math.max(0, config.volume)),
+    volume: Math.min(MAX_VOLUME, Math.max(0, config.volume)),
     notes: notes.trim().slice(0, 160),
     room: null,
     countInBars: config.countInBars,
@@ -57,7 +58,7 @@ export function songToPatch(song: ClassicSong): Partial<MetronomeConfig> {
     subdivision: song.subdivision,
     accentPattern: sanitizeAccentPattern(song.accentPattern, song.timeSignature),
     sound: song.sound,
-    volume: Math.min(1, Math.max(0, song.volume)),
+    volume: Math.min(MAX_VOLUME, Math.max(0, song.volume)),
     countInBars: song.countInBars,
     ...(song.room ? roomToConfigPatch(song.room) : {}),
   };
@@ -82,7 +83,7 @@ export function sanitizeSong(raw: unknown): ClassicSong | null {
     subdivision,
     accentPattern: sanitizeAccentPattern(source.accentPattern, timeSignature),
     sound: source.sound,
-    volume: Math.min(1, Math.max(0, typeof source.volume === 'number' ? source.volume : 0.8)),
+    volume: Math.min(MAX_VOLUME, Math.max(0, typeof source.volume === 'number' ? source.volume : 1)),
     notes: typeof source.notes === 'string' ? source.notes.slice(0, 160) : '',
     room: typeof source.room === 'string' && isRoomId(source.room) ? source.room : null,
     countInBars: source.countInBars === 1 || source.countInBars === 2 || source.countInBars === 3 || source.countInBars === 4 ? source.countInBars : 0,

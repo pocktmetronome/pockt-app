@@ -101,6 +101,11 @@ final class PocktTimingEngine {
   private var playerStartedThisGeneration = false
   private var playerPlayCalled = false
   private var missingSoundLogged: Set<String> = []
+  /// Boosted copies of click buffers, made once per (buffer, boost). Holds the source so its identity can't be reused.
+  private var boostCache: [ObjectIdentifier: (source: AVAudioPCMBuffer, db: Float, out: AVAudioPCMBuffer)] = [:]
+  /// Slider range: 0...1 is normal volume; 1...1.5 is Boost, up to +9 dB through an offline peak limiter.
+  static let maxVolume: Double = 1.5
+  static let maxBoostDb: Float = 9
   private var lastPrepareReport: [String: Any] = [:]
   private var clickUris: [String: String] = [:]
   private var sessionActivated = false
@@ -443,7 +448,9 @@ final class PocktTimingEngine {
     try ensureEngineRunning()
     let gain = Float(min(1, max(0.35, volume)))
     previewPlayer.volume = 1
-    let scaled = PocktClickBank.scaled(buffer, volume: gain)
+    // auditioning in the Boost zone sounds the way it will play
+    let boostedPreview = volume > 1 ? PocktClickBank.boosted(buffer, gainDb: boostDb(for: volume)) : buffer
+    let scaled = PocktClickBank.scaled(boostedPreview, volume: gain)
     previewPlayer.scheduleBuffer(scaled, at: nil, options: []) { [weak self] in
       guard let self, self.previewGeneration == gen else { return }
     }
@@ -1457,7 +1464,28 @@ final class PocktTimingEngine {
     return max(0, Double(scheduledThroughSample - current) / max(1, sampleRate))
   }
 
+  /// Boost above 100%: each click is pre-limited offline with full lookahead, so it gets louder with no
+  /// distortion and nothing in the timing path changes. Below 100% this returns the click untouched.
   private func bufferForEvent(_ event: PocktMusicalEvent) -> AVAudioPCMBuffer? {
+    guard let raw = rawBufferForEvent(event) else { return nil }
+    let db = boostDb(for: config.volume)
+    if db < 0.05 { return raw }
+    let id = ObjectIdentifier(raw)
+    if let hit = boostCache[id], hit.source === raw, abs(hit.db - db) < 0.05 { return hit.out }
+    if boostCache.count > 96 { boostCache.removeAll() }
+    let out = PocktClickBank.boosted(raw, gainDb: db)
+    boostCache[id] = (raw, db, out)
+    return out
+  }
+
+  private func boostDb(for volume: Double) -> Float {
+    guard volume.isFinite, volume > 1 else { return 0 }
+    let t = min(1, (volume - 1) / (PocktTimingEngine.maxVolume - 1))
+    // whole dB, matching the slider's readout, and dragging reuses cached buffers
+    return (Float(t) * PocktTimingEngine.maxBoostDb).rounded()
+  }
+
+  private func rawBufferForEvent(_ event: PocktMusicalEvent) -> AVAudioPCMBuffer? {
     if !event.audible || event.accentLevel == "mute" {
       return nil
     }
@@ -1732,14 +1760,17 @@ final class PocktTimingEngine {
   func setMasterGain(_ volume: Double) {
     sched.lock()
     defer { sched.unlock() }
-    let safe = min(1, max(0, volume.isFinite ? volume : 0.8))
+    let safe = min(PocktTimingEngine.maxVolume, max(0, volume.isFinite ? volume : 1))
     config.volume = safe
     engine.mainMixerNode.outputVolume = clampedAudibleVolume(safe)
     player.volume = clickGain
   }
 
   private func clampedAudibleVolume(_ volume: Double) -> Float {
-    let linear = min(1, max(0, volume.isFinite ? volume : 0))
+    let raw = volume.isFinite ? volume : 0
+    // Boost zone: the mixer opens the last 0.08 to full scale; the extra loudness comes from the limited clicks.
+    if raw > 1 { return Float(0.92 + 0.08 * min(1, (raw - 1) / (PocktTimingEngine.maxVolume - 1))) }
+    let linear = min(1, max(0, raw))
     if linear <= 0 { return 0 }
     // Perceptual curve so the first half of the slider is usable. 0 is silence.
     return Float(pow(linear, 0.55) * 0.92)
